@@ -2,6 +2,7 @@ package io.freemytv;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapShader;
@@ -213,7 +214,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private float k = 1;
     private String clockText = "";
     private long clockMinute = -1;
-    private boolean okDown, backDown;
+    private boolean okDown, okLongPressed, backDown;
 
     private Paint labelPaint, metaPaint, clockPaint, buttonPaint, capsuleText, tipPaint, quotePaint, staleQuote;
     private Paint rowTitle, drawerLabel, cardTitle, cardText, cardDim, cardDimRight, bigTemp, hourPaint, hourTemp;
@@ -1797,10 +1798,20 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
                 // Opens on release, and only if the press happened here: the release of an OK pressed inside another
                 // app opens nothing.
                 if (down) {
-                    if (e.getRepeatCount() == 0) okDown = true;
+                    if (e.getRepeatCount() == 0) {
+                        okDown = true;
+                        okLongPressed = false;
+                    } else if (okDown && !okLongPressed && zone == Z_SHELF && !sheetOpen && !shelf.isEmpty()) {
+                        okLongPressed = true;
+                        okDown = false;
+                        String pkg = shelf.get(shelfIndex).pkg;
+                        getContext().startActivity(new Intent(getContext(), SettingsActivity.class)
+                                .putExtra("choose_shelf", true).putExtra("shelf_package", pkg));
+                    }
                 } else {
                     if (okDown && !e.isCanceled() && spoken.keyClick()) activate();
                     okDown = false;
+                    okLongPressed = false;
                 }
                 return true;
             case KeyEvent.KEYCODE_BACK:

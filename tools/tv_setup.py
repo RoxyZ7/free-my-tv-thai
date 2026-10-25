@@ -151,7 +151,7 @@ def self_test():
     classes.mkdir(parents=True, exist_ok=True)
     source = ROOT / 'app/src/io/freemytv'
     build.run([tools['javac'], '-encoding', 'UTF-8', '--release', '8', '-d', classes, ROOT / 'tests/PolicyTest.java',
-               source / 'ShelfPolicy.java', source / 'AdPackages.java', source / 'PackageState.java', source / 'RecoveryFile.java', source / 'Thai.java'])
+               source / 'ShelfPolicy.java', source / 'WeatherPolicy.java', source / 'AdPackages.java', source / 'PackageState.java', source / 'RecoveryFile.java', source / 'Thai.java'])
     print(build.run([tools['java'], '-cp', classes, 'io.freemytv.PolicyTest']))
 
 

@@ -68,7 +68,7 @@ def test_thai_locale_and_core_translation_are_available():
     translations = dict((json.loads('"' + k + '"'), json.loads('"' + v + '"'))
                         for k, v in re.findall(r'm\("((?:\\.|[^"\\])*)",\s*"((?:\\.|[^"\\])*)"\);', thai))
     assert translations.get("Settings") == "การตั้งค่า"
-    assert 'กด OK เพื่อเพิ่มหรือนำแอปออก' in settings
+    assert 'กด OK เพิ่ม/ซ่อน' in settings
     assert 'if (Ui.th) return "th-TH";' in recs
     assert '!listLanguage.equals(languageCacheKey())' in recs
     assert 'parts.add(seasons + " ซีซัน")' in recs

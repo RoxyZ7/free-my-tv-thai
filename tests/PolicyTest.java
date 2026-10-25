@@ -1,5 +1,8 @@
 package io.freemytv;
 
+import java.util.Arrays;
+import java.util.List;
+
 public final class PolicyTest {
     public static void main(String[] args) {
         check(ShelfPolicy.packages(" a.one,b.two,a.one,invalid, ").size() == 2, "ordered deduplication");
@@ -9,6 +12,29 @@ public final class PolicyTest {
         check(ShelfPolicy.accessible(7, 0, 15), "next page reachable to TalkBack");
         check(ShelfPolicy.accessible(6, 7, 15), "previous page reachable to TalkBack");
         check(!ShelfPolicy.accessible(14, 0, 15), "only adjacent page edge exposed");
+        check(ShelfPolicy.move(Arrays.asList("a.one", "b.two", "c.three"), "a.one", 1)
+                .equals(Arrays.asList("b.two", "a.one", "c.three")), "remote reorder changes the selected app position");
+        check(ShelfPolicy.move(Arrays.asList("a.one", "b.two"), "a.one", -1)
+                .equals(Arrays.asList("a.one", "b.two")), "reorder stops at the first position");
+        check(ShelfPolicy.toggle(Arrays.asList("a.one", "b.two"), "a.one")
+                .equals(Arrays.asList("b.two")), "remote hide removes an app from the shelf");
+        check(ShelfPolicy.toggle(Arrays.asList("a.one"), "b.two")
+                .equals(Arrays.asList("a.one", "b.two")), "remote show appends a hidden app");
+        check(ShelfPolicy.defaults("a.one,b.two,a.one").equals(Arrays.asList("a.one", "b.two")),
+                "restore defaults keeps the original unique app order");
+        check(ShelfPolicy.editorRow(0) == 1 && ShelfPolicy.editorRow(6) == 7 && ShelfPolicy.editorRow(-1) == 0,
+                "opening the shelf editor focuses the app row, never the restore action by accident");
+        check(WeatherPolicy.nextRefreshMinutes(30, 1) == 60
+                && WeatherPolicy.nextRefreshMinutes(60, 1) == 15
+                && WeatherPolicy.nextRefreshMinutes(30, -1) == 15, "weather refresh interval cycles with the remote");
+        check(WeatherPolicy.refreshMillis(15) == 900000L, "weather interval drives the refresh deadline");
+        check(WeatherPolicy.geocodingUrl("Lamphun & co", "th").equals(
+                "https://geocoding-api.open-meteo.com/v1/search?name=Lamphun+%26+co&count=5&language=th&format=json"),
+                "city search safely encodes user text");
+        check(WeatherPolicy.validCoordinates(18.58, 99.01) && !WeatherPolicy.validCoordinates(91, 99.01)
+                && !WeatherPolicy.validCoordinates(18.58, Double.NaN), "weather location rejects invalid coordinates");
+        check(WeatherPolicy.cacheMatches("18.58,99.01", "18.58,99.01")
+                && !WeatherPolicy.cacheMatches("18.58,99.01", "13.75,100.50"), "offline forecast is reused only for its saved city");
         check(PackageState.needsRecovery(false, 1, false), "partial activation can retry Original");
         check(PackageState.needsRecovery(false, 0, true), "Home/dream-only recovery can retry");
         check(!PackageState.needsRecovery(false, 0, false), "untouched Original needs no recovery");

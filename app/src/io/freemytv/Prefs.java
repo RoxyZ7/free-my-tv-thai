@@ -69,11 +69,29 @@ final class Prefs {
 
     static void setTheme(String v) { put("theme", v); }
 
-    // MARK: - City (from config.properties)
+    // MARK: - Weather location and refresh
 
-    static String city() { return Config.CITY.trim(); }
-    static String latitude() { return Config.LATITUDE; }
-    static String longitude() { return Config.LONGITUDE; }
+    static String city() { return sp().getString("weather_city", Config.CITY.trim()).trim(); }
+    static String latitude() { return sp().getString("weather_latitude", Config.LATITUDE); }
+    static String longitude() { return sp().getString("weather_longitude", Config.LONGITUDE); }
+
+    static void setWeatherLocation(String city, double latitude, double longitude) {
+        String name = city == null ? "" : city.trim();
+        if (name.isEmpty() || !WeatherPolicy.validCoordinates(latitude, longitude))
+            throw new IllegalArgumentException("A valid city and location are required.");
+        sp().edit().putString("weather_city", name).putString("weather_latitude", Double.toString(latitude))
+                .putString("weather_longitude", Double.toString(longitude)).apply();
+        version++;
+    }
+
+    static int weatherRefreshMinutes() {
+        return WeatherPolicy.normalizeRefreshMinutes(sp().getInt("weather_refresh_minutes", 30));
+    }
+
+    static void setWeatherRefreshMinutes(int minutes) {
+        sp().edit().putInt("weather_refresh_minutes", WeatherPolicy.normalizeRefreshMinutes(minutes)).apply();
+        version++;
+    }
 
     // MARK: - Widgets and coins
 
@@ -99,6 +117,11 @@ final class Prefs {
         StringBuilder sb = new StringBuilder();
         for (String p : packages) sb.append(sb.length() == 0 ? "" : ",").append(p);
         put("shelf", sb.toString());
+    }
+
+    static void resetShelf() {
+        sp().edit().remove("shelf").apply();
+        version++;
     }
 
     // MARK: - Remote buttons

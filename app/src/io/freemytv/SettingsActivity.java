@@ -1,6 +1,7 @@
 package io.freemytv;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -19,10 +20,13 @@ import android.provider.Settings;
 import android.text.StaticLayout;
 import android.text.TextPaint;
 import android.text.TextUtils;
+import android.text.InputType;
 import android.view.Choreographer;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeProvider;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -33,6 +37,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Free My TV's settings (the app's icon, "All Apps", or the gear on the home screen), in the style of Apple TV's
@@ -57,7 +63,9 @@ public class SettingsActivity extends Activity {
         view.resume();
         if (getIntent().getBooleanExtra("choose_shelf", false)) {
             getIntent().removeExtra("choose_shelf");
-            view.openShelfEditor();
+            String packageToFocus = getIntent().getStringExtra("shelf_package");
+            getIntent().removeExtra("shelf_package");
+            view.openShelfEditor(packageToFocus);
         }
         // From ADB: am start -n io.freemytv/.SettingsActivity --ez screensaver true (straight to the preview).
         if (preview == null && getIntent().getBooleanExtra("screensaver", false)) {
@@ -114,7 +122,7 @@ public class SettingsActivity extends Activity {
     }
 
     static final class SettingsView extends View implements Choreographer.FrameCallback {
-        private static final int MAIN = 0, HOME_CHOICE = 1, HOME_SETTINGS = 2, REMOTE_KEYS = 3, PICKER = 4, SHELF_EDIT = 5;
+        private static final int MAIN = 0, HOME_CHOICE = 1, HOME_SETTINGS = 2, REMOTE_KEYS = 3, PICKER = 4, SHELF_EDIT = 5, WEATHER_SETTINGS = 6;
         private static final float LIST_ROW_H = 68, LIST_ROW_GAP = 6;
         private static final int PICK_VISIBLE = 9;
         private static final float LIST_X = 1000, LIST_R = 1824, LIST_TOP = 186, ROW_H = 74, ROW_GAP = 8, CHOICE_H = 104;
@@ -123,6 +131,7 @@ public class SettingsActivity extends Activity {
         private final SettingsActivity activity;
         private final Scene scene = new Scene();
         private final Handler handler = new Handler(Looper.getMainLooper());
+        private static final ExecutorService WEATHER_SEARCH = Executors.newSingleThreadExecutor();
         private final Spring[] pop = new Spring[12];
         private final List<String> appPkgs = new ArrayList<>(), appLabels = new ArrayList<>();
         // The list picker (the app of a remote button): what it shows, which one is in use, where we are.
@@ -208,8 +217,12 @@ public class SettingsActivity extends Activity {
                         return Ui.tr("Início, ", "Home Screen, ") + value;
                     }
                     String[] names = {Ui.tr("Tela de Descanso, ver agora", "Screensaver, preview"), Ui.tr("Ajustes do Início", "Home Settings"),
-                            Ui.tr("Prateleira", "Shelf"), Ui.tr("Botões do Controle", "Remote Buttons"), Ui.tr("Ajustes da TV", "TV Settings")};
+                            Ui.tr("Prateleira", "Shelf"), Ui.tr("Botões do Controle", "Remote Buttons"), Ui.tr("Clima", "Weather"), Ui.tr("Ajustes da TV", "TV Settings")};
                     return row - 1 < names.length ? names[row - 1] : "";
+                }
+                case WEATHER_SETTINGS: {
+                    String[] labels = weatherLabels(), values = weatherValues();
+                    return row < labels.length ? labels[row] + ", " + values[row] : "";
                 }
                 case HOME_CHOICE: {
                     String name = row == 0 ? "Free My TV, " + Ui.tr("sem anúncios, com a tela de descanso nova", "no ads, with the new screensaver")
@@ -231,8 +244,9 @@ public class SettingsActivity extends Activity {
                 }
                 case SHELF_EDIT: {
                     int at = pickScroll + row;
-                    if (at >= shelfRows.size()) return "";
-                    String[] app = shelfRows.get(at);
+                    if (at == 0) return Ui.tr("คืนค่าแอปเริ่มต้น", "Restore starting apps");
+                    if (at - 1 >= shelfRows.size()) return "";
+                    String[] app = shelfRows.get(at - 1);
                     int place = shelfOrder.indexOf(app[0]);
                     return app[1] + ", " + (place >= 0 ? Ui.tr("na prateleira, posição ", "on the shelf, place ") + (place + 1)
                             : Ui.tr("fora da prateleira", "not on the shelf"));
@@ -324,11 +338,12 @@ public class SettingsActivity extends Activity {
 
         private int rowCount() {
             switch (screen) {
-                case MAIN: return 6;
+                case MAIN: return 7;
                 case HOME_CHOICE: return 2;
                 case HOME_SETTINGS: return settingLabels().length;
+                case WEATHER_SETTINGS: return weatherLabels().length;
                 case PICKER: return Math.min(PICK_VISIBLE, pickLabels.size());
-                case SHELF_EDIT: return Math.min(PICK_VISIBLE, shelfRows.size());
+                case SHELF_EDIT: return Math.min(PICK_VISIBLE, shelfRows.size() + 1);
                 default: return Prefs.KEYS.length;
             }
         }
@@ -368,9 +383,9 @@ public class SettingsActivity extends Activity {
             String mode = freeActive() ? "Free My TV" : Ui.tr("Original", "Original");
             String[] labels = {Ui.tr("Início", "Home Screen"), Ui.tr("Tela de Descanso", "Screensaver"),
                     Ui.tr("Ajustes do Início", "Home Settings"), Ui.tr("Prateleira", "Shelf"),
-                    Ui.tr("Botões do Controle", "Remote Buttons"), Ui.tr("Ajustes da TV", "TV Settings")};
-            String[] values = {working ? "" : mode, Ui.tr("Ver agora", "Preview"), "", "", "", ""};
-            for (int i = 0; i < 6; i++) {
+                    Ui.tr("Botões do Controle", "Remote Buttons"), Ui.tr("Clima", "Weather"), Ui.tr("Ajustes da TV", "TV Settings")};
+            String[] values = {working ? "" : mode, Ui.tr("Ver agora", "Preview"), "", "", "", "", ""};
+            for (int i = 0; i < 7; i++) {
                 float y = (LIST_TOP + i * (ROW_H + ROW_GAP)) * k;
                 rowRect.set(LIST_X * k, y, LIST_R * k, y + ROW_H * k);
                 float f = drawRowBackground(c, i);
@@ -397,7 +412,7 @@ public class SettingsActivity extends Activity {
                 }
             }
 
-            float y = (LIST_TOP + 6 * (ROW_H + ROW_GAP) + 20) * k;
+            float y = (LIST_TOP + 7 * (ROW_H + ROW_GAP) + 20) * k;
             String error = state.optString("error");
             if (working && (busyText.contains("Permitir") || busyText.contains("Allow"))) {
                 c.drawText(Ui.tr("Na TV: marque “Sempre permitir” e aperte OK.", "On the TV: tick “Always allow” and press OK."),
@@ -599,7 +614,7 @@ public class SettingsActivity extends Activity {
                                 focus = pickFor - 1;
                                 screen = REMOTE_KEYS;
                             } else {
-                                focus = screen == HOME_SETTINGS ? 2 : screen == SHELF_EDIT ? 3 : screen == REMOTE_KEYS ? 4 : 0;
+                                focus = screen == HOME_SETTINGS ? 2 : screen == SHELF_EDIT ? 3 : screen == REMOTE_KEYS ? 4 : screen == WEATHER_SETTINGS ? 5 : 0;
                                 screen = MAIN;
                             }
                         }
@@ -616,8 +631,8 @@ public class SettingsActivity extends Activity {
         // MARK: - Home Settings and Remote Buttons
 
         private static final String[] LANGUAGES = {"auto", "pt", "en", "es", "th"}, UNITS = {"auto", "C", "F"}, THEMES = {"auto", "light", "dark"};
-        /** Home Settings: language, temperature, theme, weather, quotes, then one row per coin. */
-        private static final int COIN_ROWS = 5;
+        /** Home Settings: language, theme, widgets, then one row per coin. */
+        private static final int COIN_ROWS = 4;
 
         private boolean dollar() {
             return "BRL".equalsIgnoreCase(Config.CURRENCY.trim());
@@ -626,7 +641,6 @@ public class SettingsActivity extends Activity {
         private String[] settingLabels() {
             List<String> l = new ArrayList<>();
             l.add(Ui.tr("Idioma", "Language"));
-            l.add(Ui.tr("Temperatura", "Temperature"));
             l.add(Ui.tr("Tema", "Theme"));
             l.add(Ui.tr("Widget do clima", "Weather widget"));
             l.add(Ui.tr("Widget de cotações", "Quotes widget"));
@@ -642,15 +656,83 @@ public class SettingsActivity extends Activity {
             String[] v = new String[labels.length];
             String lang = Prefs.language();
             v[0] = lang.equals("pt") ? "Português" : lang.equals("en") ? "English" : lang.equals("es") ? "Español" : lang.equals("th") ? "ไทย" : Ui.tr("Automático", "Automatic");
-            String unit = Prefs.temperature();
-            v[1] = unit.equals("C") ? "°C" : unit.equals("F") ? "°F" : Ui.tr("Automática", "Automatic");
             String theme = Prefs.theme();
-            v[2] = theme.equals("light") ? Ui.tr("Claro", "Light") : theme.equals("dark") ? Ui.tr("Escuro", "Dark") : Ui.tr("Automático", "Automatic");
-            v[3] = onOff(Prefs.weather());
-            v[4] = onOff(Prefs.quotes());
+            v[1] = theme.equals("light") ? Ui.tr("Claro", "Light") : theme.equals("dark") ? Ui.tr("Escuro", "Dark") : Ui.tr("Automático", "Automatic");
+            v[2] = onOff(Prefs.weather());
+            v[3] = onOff(Prefs.quotes());
             // No quotes widget, nowhere to show prices: the coins read as off (and stay locked) until it is back on.
             for (int i = COIN_ROWS; i < v.length; i++) v[i] = onOff(Prefs.quotes() && Prefs.coin(i - COIN_ROWS));
             return v;
+        }
+
+        private String[] weatherLabels() {
+            return new String[] {Ui.tr("Localização", "Location"), Ui.tr("Temperatura", "Temperature"), Ui.tr("Atualizar a cada", "Refresh every")};
+        }
+
+        private String[] weatherValues() {
+            String unit = Prefs.temperature();
+            String interval = Prefs.weatherRefreshMinutes() == 60 ? Ui.tr("1 hora", "1 hour") : Prefs.weatherRefreshMinutes() + " " + Ui.tr("minutos", "min");
+            return new String[] {Prefs.city(), unit.equals("C") ? "°C" : unit.equals("F") ? "°F" : Ui.tr("Automática", "Automatic"), interval};
+        }
+
+        private void editWeatherLocation() {
+            EditText input = new EditText(activity);
+            input.setSingleLine(true);
+            input.setSelectAllOnFocus(true);
+            input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+            input.setText(Prefs.city());
+            input.setSelection(input.length());
+            AlertDialog dialog = new AlertDialog.Builder(activity)
+                    .setTitle(Ui.tr("เมืองหรือจังหวัด", "City or province"))
+                    .setView(input)
+                    .setNegativeButton(Ui.tr("ยกเลิก", "Cancel"), null)
+                    .setPositiveButton(Ui.tr("ค้นหา", "Search"), (d, which) -> searchWeatherLocation(input.getText().toString()))
+                    .create();
+            dialog.setOnShowListener(d -> {
+                if (dialog.getWindow() != null)
+                    dialog.getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+            });
+            dialog.show();
+        }
+
+        private void searchWeatherLocation(String query) {
+            if (query == null || query.trim().isEmpty()) {
+                Toast.makeText(activity, Ui.tr("กรุณาใส่ชื่อเมืองหรือจังหวัด", "Enter a city or province."), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(activity, Ui.tr("กำลังค้นหาสถานที่…", "Searching locations…"), Toast.LENGTH_SHORT).show();
+            WEATHER_SEARCH.execute(() -> {
+                try {
+                    List<WeatherLocations.Place> places = WeatherLocations.search(query);
+                    handler.post(() -> {
+                        if (places.isEmpty()) {
+                            Toast.makeText(activity, Ui.tr("ไม่พบสถานที่นี้", "No matching places found."), Toast.LENGTH_LONG).show();
+                        } else {
+                            showWeatherPlaces(places);
+                        }
+                    });
+                } catch (Exception error) {
+                    AppLog.w("weather location search: " + error.getMessage());
+                    handler.post(() -> Toast.makeText(activity,
+                            Ui.tr("ค้นหาไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง", "Search failed. Check the internet connection and try again."),
+                            Toast.LENGTH_LONG).show());
+                }
+            });
+        }
+
+        private void showWeatherPlaces(List<WeatherLocations.Place> places) {
+            String[] labels = new String[places.size()];
+            for (int i = 0; i < labels.length; i++) labels[i] = places.get(i).label;
+            new AlertDialog.Builder(activity)
+                    .setTitle(Ui.tr("เลือกสถานที่", "Choose a place"))
+                    .setItems(labels, (dialog, which) -> {
+                        WeatherLocations.Place place = places.get(which);
+                        Prefs.setWeatherLocation(place.label, place.latitude, place.longitude);
+                        HomeData.get(getContext()).settingsChanged();
+                        invalidate();
+                    })
+                    .setNegativeButton(Ui.tr("ยกเลิก", "Cancel"), null)
+                    .show();
         }
 
         private static String onOff(boolean on) {
@@ -702,6 +784,21 @@ public class SettingsActivity extends Activity {
                 Prefs.setKeyApp(Prefs.KEYS[focus], appPkgs.get(next));
                 return;
             }
+            if (screen == WEATHER_SETTINGS) {
+                switch (focus) {
+                    case 0: return;
+                    case 1: {
+                        int at = java.util.Arrays.asList(UNITS).indexOf(Prefs.temperature());
+                        Prefs.setTemperature(UNITS[(at + dir + UNITS.length) % UNITS.length]);
+                        break;
+                    }
+                    case 2:
+                        Prefs.setWeatherRefreshMinutes(WeatherPolicy.nextRefreshMinutes(Prefs.weatherRefreshMinutes(), dir));
+                        break;
+                }
+                HomeData.get(getContext()).settingsChanged();
+                return;
+            }
             switch (focus) {
                 case 0: {
                     int at = java.util.Arrays.asList(LANGUAGES).indexOf(Prefs.language());
@@ -709,17 +806,12 @@ public class SettingsActivity extends Activity {
                     break;
                 }
                 case 1: {
-                    int at = java.util.Arrays.asList(UNITS).indexOf(Prefs.temperature());
-                    Prefs.setTemperature(UNITS[(at + dir + UNITS.length) % UNITS.length]);
-                    break;
-                }
-                case 2: {
                     int at = java.util.Arrays.asList(THEMES).indexOf(Prefs.theme());
                     Prefs.setTheme(THEMES[(at + dir + THEMES.length) % THEMES.length]);
                     break;
                 }
-                case 3: Prefs.setWeather(!Prefs.weather()); break;
-                case 4: Prefs.setQuotes(!Prefs.quotes()); break;
+                case 2: Prefs.setWeather(!Prefs.weather()); break;
+                case 3: Prefs.setQuotes(!Prefs.quotes()); break;
                 default:
                     if (!Prefs.quotes()) return;
                     Prefs.setCoin(focus - COIN_ROWS, !Prefs.coin(focus - COIN_ROWS));
@@ -733,18 +825,30 @@ public class SettingsActivity extends Activity {
         }
 
         private int listSize() {
-            return screen == SHELF_EDIT ? shelfRows.size() : pickLabels.size();
+            return screen == SHELF_EDIT ? shelfRows.size() + 1 : pickLabels.size();
         }
 
         // MARK: - Shelf editor
 
-        private void openShelfEditor() {
+        private void openShelfEditor() { openShelfEditor(null); }
+
+        void openShelfEditor(String packageToFocus) {
             shelfOrder.clear();
             shelfOrder.addAll(HomeApps.shelfPackages(getContext()));
             rebuildShelfRows(HomeApps.shelfCandidates(getContext()));
             pickScroll = 0;
-            focus = 0;
             screen = SHELF_EDIT;
+            int appIndex = -1;
+            if (packageToFocus != null) {
+                for (int i = 0; i < shelfRows.size(); i++) {
+                    if (packageToFocus.equals(shelfRows.get(i)[0])) { appIndex = i; break; }
+                }
+            } else if (!shelfRows.isEmpty()) {
+                appIndex = 0;
+            }
+            int row = appIndex < 0 && !shelfRows.isEmpty() ? 1 : ShelfPolicy.editorRow(appIndex);
+            pickScroll = Math.max(0, row - (PICK_VISIBLE - 1));
+            focus = row - pickScroll;
         }
 
         /** Selected apps first, in shelf order, then the rest in the order they came. */
@@ -762,10 +866,11 @@ public class SettingsActivity extends Activity {
             rebuildShelfRows(all);
             for (int i = 0; i < shelfRows.size(); i++) {
                 if (!shelfRows.get(i)[0].equals(focusedPkg)) continue;
+                int row = ShelfPolicy.editorRow(i);
                 int visible = rowCount();
-                if (i < pickScroll) pickScroll = i;
-                else if (i >= pickScroll + visible) pickScroll = i - visible + 1;
-                focus = i - pickScroll;
+                if (row < pickScroll) pickScroll = row;
+                else if (row >= pickScroll + visible) pickScroll = row - visible + 1;
+                focus = row - pickScroll;
                 break;
             }
             Prefs.setShelf(shelfOrder);
@@ -773,19 +878,36 @@ public class SettingsActivity extends Activity {
 
         /** OK: puts the app on the shelf (at the end) or takes it off. */
         private void toggleShelfApp() {
-            String pkg = shelfRows.get(pickScroll + focus)[0];
-            if (shelfOrder.contains(pkg)) shelfOrder.remove(pkg);
-            else shelfOrder.add(pkg);
+            int at = pickScroll + focus;
+            if (at == 0) {
+                restoreShelfDefaults();
+                return;
+            }
+            String pkg = shelfRows.get(at - 1)[0];
+            List<String> next = ShelfPolicy.toggle(shelfOrder, pkg);
+            shelfOrder.clear();
+            shelfOrder.addAll(next);
             refreshShelfRows(pkg);
+        }
+
+        private void restoreShelfDefaults() {
+            shelfOrder.clear();
+            shelfOrder.addAll(ShelfPolicy.defaults(Config.SHELF_PACKAGES));
+            rebuildShelfRows(HomeApps.shelfCandidates(getContext()));
+            pickScroll = 0;
+            focus = shelfRows.isEmpty() ? 0 : 1;
+            if (Config.SHELF_PACKAGES.trim().isEmpty()) Prefs.resetShelf();
+            else Prefs.setShelf(shelfOrder);
         }
 
         /** ← → : moves a shelf app one place earlier or later. */
         private void moveShelfApp(int dir) {
-            String pkg = shelfRows.get(pickScroll + focus)[0];
-            int at = shelfOrder.indexOf(pkg), to = at + dir;
-            if (at < 0 || to < 0 || to >= shelfOrder.size()) return;
-            shelfOrder.remove(at);
-            shelfOrder.add(to, pkg);
+            int row = pickScroll + focus;
+            if (row <= 0 || row - 1 >= shelfRows.size()) return;
+            String pkg = shelfRows.get(row - 1)[0];
+            List<String> next = ShelfPolicy.move(shelfOrder, pkg, dir);
+            shelfOrder.clear();
+            shelfOrder.addAll(next);
             refreshShelfRows(pkg);
         }
 
@@ -794,23 +916,30 @@ public class SettingsActivity extends Activity {
             c.drawText(Ui.tr("Prateleira", "Shelf"), LIST_X * k + 30 * k, (LIST_TOP - 24) * k, heading);
             int rows = rowCount();
             for (int i = 0; i < rows; i++) {
-                String[] app = shelfRows.get(pickScroll + i);
-                int place = shelfOrder.indexOf(app[0]);
+                int at = pickScroll + i;
+                boolean restore = at == 0;
+                String[] app = restore ? null : shelfRows.get(at - 1);
+                int place = restore ? -1 : shelfOrder.indexOf(app[0]);
                 float y = (LIST_TOP + 20 + i * (LIST_ROW_H + LIST_ROW_GAP)) * k;
                 rowRect.set(LIST_X * k, y, LIST_R * k, y + LIST_ROW_H * k);
                 float f = drawRowBackground(c, i);
-                rowLabel.setColor(blend(place >= 0 ? 0xF2FFFFFF : 0x80FFFFFF, place >= 0 ? INK : 0x801C1C1E, f));
+                rowLabel.setColor(blend(restore || place >= 0 ? 0xF2FFFFFF : 0x80FFFFFF, restore || place >= 0 ? INK : 0x801C1C1E, f));
                 rowValue.setColor(blend(0xB3FFFFFF, 0xB31C1C1E, f));
                 float base = rowRect.centerY() + Ui.halfCap(rowLabel);
-                c.drawText(TextUtils.ellipsize(app[1], new TextPaint(rowLabel), 520 * k, TextUtils.TruncateAt.END).toString(), rowRect.left + 30 * k, base, rowLabel);
-                c.drawText(place >= 0 ? "#" + (place + 1) : Ui.tr("Fora", "Off"), rowRect.right - 30 * k, base, rowValue);
+                String label = restore ? Ui.tr("คืนค่าแอปเริ่มต้น", "Restore starting apps") : app[1];
+                c.drawText(TextUtils.ellipsize(label, new TextPaint(rowLabel), 520 * k, TextUtils.TruncateAt.END).toString(), rowRect.left + 30 * k, base, rowLabel);
+                c.drawText(restore ? "↺" : place >= 0 ? "#" + (place + 1) : Ui.tr("Fora", "Off"), rowRect.right - 30 * k, base, rowValue);
             }
             Paint hint = Ui.text(Ui.regular, 23 * k, 0x8CFFFFFF);
             float hy = (LIST_TOP + 20 + rows * (LIST_ROW_H + LIST_ROW_GAP) + 36) * k;
-            String hintText = Ui.th ? "กด OK เพื่อเพิ่มหรือนำแอปออก กด ← → เพื่อเปลี่ยนลำดับ (หน้าละ 7 แอป)"
-                    : Ui.en ? "OK adds/removes. Left/right reorders. The dock shows 7 apps per page."
-                    : "OK: adicionar/remover. ← →: ordem. 7 apps por página.";
+            String hintText = Ui.th ? "คืนค่าเริ่มต้นอยู่รายการแรก · กด OK เพิ่ม/ซ่อน · ← → จัดลำดับ"
+                    : Ui.en ? "Restore starting apps is first. OK adds/hides. Left/right reorders."
+                    : Ui.es ? "Restaurar apps iniciales está primero. OK añade/oculta. ← → reordena."
+                    : "OK: adicionar/remover ou restaurar. ← →: ordem. 7 apps por página.";
             c.drawText(hintText, LIST_X * k + 30 * k, hy, hint);
+            c.drawText(Ui.th ? "กดค้าง OK บนแถบแอปหน้าแรกเพื่อเปิดหน้านี้" : Ui.en ? "Hold OK on the home shelf to open this editor."
+                    : Ui.es ? "Mantén OK en la barra de inicio para abrir este editor." : "Mantenha OK na tela inicial para abrir este editor.",
+                    LIST_X * k + 30 * k, hy + 34 * k, hint);
         }
 
         private void openPicker(int which) {
@@ -851,10 +980,11 @@ public class SettingsActivity extends Activity {
 
         private void drawList(Canvas c) {
             boolean keys = screen == REMOTE_KEYS;
-            String[] labels = keys ? keyLabels() : settingLabels();
-            String[] values = keys ? keyValues() : settingValues();
+            boolean weather = screen == WEATHER_SETTINGS;
+            String[] labels = keys ? keyLabels() : weather ? weatherLabels() : settingLabels();
+            String[] values = keys ? keyValues() : weather ? weatherValues() : settingValues();
             Paint heading = Ui.text(Ui.displaySemibold, 34 * k, 0xFFFFFFFF);
-            c.drawText(keys ? Ui.tr("Botões do Controle", "Remote Buttons") : Ui.tr("Ajustes do Início", "Home Settings"),
+            c.drawText(keys ? Ui.tr("Botões do Controle", "Remote Buttons") : weather ? Ui.tr("Clima", "Weather") : Ui.tr("Ajustes do Início", "Home Settings"),
                     LIST_X * k + 30 * k, (LIST_TOP - 24) * k, heading);
             for (int i = 0; i < labels.length; i++) {
                 float y = (LIST_TOP + 20 + i * (LIST_ROW_H + LIST_ROW_GAP)) * k;
@@ -866,11 +996,13 @@ public class SettingsActivity extends Activity {
                 if (locked) rowLabel.setColor(blend(0x73FFFFFF, 0x731C1C1E, f));
                 float base = rowRect.centerY() + Ui.halfCap(rowLabel);
                 c.drawText(labels[i], rowRect.left + 30 * k, base, rowLabel);
-                c.drawText(values[i], rowRect.right - 30 * k, base, rowValue);
+                String value = TextUtils.ellipsize(values[i], new TextPaint(rowValue), 420 * k, TextUtils.TruncateAt.END).toString();
+                c.drawText(value, rowRect.right - 30 * k, base, rowValue);
             }
             Paint hint = Ui.text(Ui.regular, 23 * k, 0x8CFFFFFF);
             float hy = (LIST_TOP + 20 + labels.length * (LIST_ROW_H + LIST_ROW_GAP) + 36) * k;
-            c.drawText(Ui.tr("OK ou as setas mudam o valor.", "OK or the arrows change the value."), LIST_X * k + 30 * k, hy, hint);
+            c.drawText(weather ? Ui.tr("OK busca um local; ← → mudam a unidade e o intervalo.", "OK searches for a place; left/right change units and interval.")
+                    : Ui.tr("OK ou as setas mudam o valor.", "OK or the arrows change the value."), LIST_X * k + 30 * k, hy, hint);
             if (keys) {
                 c.drawText(RemoteKeys.supported() ? Ui.tr("Disney e Globoplay: a própria TV controla esses botões.",
                         "Disney and Globoplay: the TV itself controls those buttons.")
@@ -898,6 +1030,11 @@ public class SettingsActivity extends Activity {
                 toggleShelfApp();
                 invalidate();
                 return;
+            } else if (screen == WEATHER_SETTINGS) {
+                if (focus == 0) editWeatherLocation();
+                else adjust(1);
+                invalidate();
+                return;
             } else if (screen == REMOTE_KEYS) {
                 openPicker(focus + 1);
             } else if (screen == HOME_SETTINGS) {
@@ -920,6 +1057,9 @@ public class SettingsActivity extends Activity {
                 HomeMode.ensureRemoteService(c, 0);   // the buttons work from inside other apps through this service
                 loadApps();
                 screen = REMOTE_KEYS;
+                focus = 0;
+            } else if (focus == 5) {
+                screen = WEATHER_SETTINGS;
                 focus = 0;
             } else {
                 activity.startActivity(new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));

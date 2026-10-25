@@ -24,9 +24,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Optional crypto prices (Binance, every 5 min) and weather/sunrise/sunset (Open-Meteo, every 30 min), cached
+ * Optional crypto prices (Binance, every 5 min) and weather/sunrise/sunset (Open-Meteo), cached
  * so the screen opens with numbers. Only fetched while the home screen or the screensaver is visible (the screen asks).
- * Neither source needs a key. Location and currency come from config.properties.
+ * Neither source needs a key. Location/currency start in config.properties; weather location and interval can be
+ * changed on the TV and are kept in private app preferences.
  */
 final class HomeData {
     static final String[] COINS = {"BTC", "ETH", "SOL", "USDT"};
@@ -41,10 +42,10 @@ final class HomeData {
         return Prefs.latitude() + "," + Prefs.longitude();
     }
 
-    private static String weatherUrl() {
-        return "https://api.open-meteo.com/v1/forecast?latitude=" + Prefs.latitude() + "&longitude=" + Prefs.longitude() + WEATHER_QUERY;
+    private static String weatherUrl(String latitude, String longitude) {
+        return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + WEATHER_QUERY;
     }
-    private static final long PRICES_EVERY = 5 * 60_000L, WEATHER_EVERY = 30 * 60_000L;
+    private static final long PRICES_EVERY = 5 * 60_000L;
     interface Listener { void onData(); }
 
     /** BTC, ETH and SOL; in Brazilian reais also the dollar (USDT/BRL), which Binance doesn't list for most currencies. */
@@ -72,6 +73,11 @@ final class HomeData {
     void settingsChanged() {
         pricesAt = 0;
         weatherAt = 0;
+        String place = weatherPlace();
+        if (!place.equals(loadedWeatherPlace)) {
+            weather = new Weather();
+            loadedWeatherPlace = place;
+        }
     }
 
     static String coinName(int i) {
@@ -115,6 +121,7 @@ final class HomeData {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final List<Listener> listeners = new ArrayList<>();
     private volatile boolean fetchingPrices, fetchingWeather;
+    private volatile String loadedWeatherPlace;
 
     private HomeData(Context c) {
         cache = c.getSharedPreferences("homedata", Context.MODE_PRIVATE);
@@ -126,10 +133,11 @@ final class HomeData {
             }
             String w = cache.getString("weather", null);
             // The cached forecast is for the city it was fetched for; another city means fetch again.
-            if (w != null && weatherPlace().equals(cache.getString("weatherPlace", ""))) {
+            if (w != null && WeatherPolicy.cacheMatches(weatherPlace(), cache.getString("weatherPlace", ""))) {
                 weather = parseWeather(w);
                 weatherAt = cache.getLong("weatherAt", 0);
             }
+            loadedWeatherPlace = weatherPlace();
         } catch (Exception ignored) {}
     }
 
@@ -156,14 +164,19 @@ final class HomeData {
                 }
             });
         }
-        if (!fetchingWeather && (now - weatherAt > WEATHER_EVERY || now < weatherAt)) {
+        long weatherEvery = WeatherPolicy.refreshMillis(Prefs.weatherRefreshMinutes());
+        if (!fetchingWeather && (now - weatherAt > weatherEvery || now < weatherAt)) {
             fetchingWeather = true;
             io.execute(() -> {
+                String latitude = Prefs.latitude(), longitude = Prefs.longitude();
+                String requestedPlace = latitude + "," + longitude;
                 try {
-                    String body = get(weatherUrl());
+                    String body = get(weatherUrl(latitude, longitude));
+                    if (!requestedPlace.equals(weatherPlace())) return;
                     weather = parseWeather(body);
                     weatherAt = System.currentTimeMillis();
-                    cache.edit().putString("weather", body).putLong("weatherAt", weatherAt).putString("weatherPlace", weatherPlace()).apply();
+                    loadedWeatherPlace = requestedPlace;
+                    cache.edit().putString("weather", body).putLong("weatherAt", weatherAt).putString("weatherPlace", requestedPlace).apply();
                     notifyListeners();
                 } catch (Exception e) {
                     AppLog.w("weather: " + e.getMessage());
