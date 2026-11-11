@@ -3,7 +3,7 @@
 ## Supported design
 
 - Native Java Android app, package io.freemytv. Version 2.0 / code 2, minSdk 28 (Android 9), targetSdk 34.
-- No app-native ABI dependencies: ARM/ARM64 boxes use the Android runtime. The bundled Windows x64 build tools run on the computer, not on the box.
+- The Rust blur library is bundled for arm64-v8a, armeabi-v7a, x86, and x86_64. Java handles the blur if the library cannot load or the input is outside its supported range. The bundled Windows x64 build tools run on the computer.
 - Android 9–11 retain the upstream Ui.LEGACY drawing path: avoid expensive hardware layers, use cached shadows/bitmap rounding, and use the legacy Recording fallback rather than unguarded RenderNode calls.
 - Android 9–12 retain non-AGSL backgrounds. Android 11 keeps its separate screensaver process variant. Thai fonts and symbols are stored at normalized forward-slash asset paths.
 - Stock Home/setup/saved-Wi-Fi handling, remote shortcuts and ADB permissions vary by firmware. The dedicated shortcut interception inherited from upstream is TCL-specific; do not promise it remaps Xiaomi shortcut buttons.
@@ -37,7 +37,8 @@ Some older Mi Box S firmware changes the USB port into debugging/device mode whi
 Discovery uses ONVIF Media on the same private IPv4 subnet and supports
 ONVIF UsernameToken authentication. A manual RTSP address is available
 for cameras with different discovery or authentication requirements.
-The app validates the configured RTSP destination before handing it
-to the Android firmware player, which controls RTSP redirects and its own
+VStarcam TCP stream URLs use the bundled Media3 player with a camera-bound
+socket and a compatibility fix for trailing whitespace in SDP. Other streams
+use the Android firmware player, which controls RTSP redirects and its own
 logging. Build and policy checks do not establish camera playback on any
 particular firmware.

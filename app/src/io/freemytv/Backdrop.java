@@ -203,11 +203,15 @@ final class Backdrop {
         small.getPixels(px, 0, w, 0, 0, w, h);
         small.recycle();
         int[] tmp = new int[px.length];
+        if (!RustBlur.apply(px, tmp, w, h, radius, passes)) blurJava(px, tmp, w, h, radius, passes);
+        return px;
+    }
+
+    static void blurJava(int[] px, int[] tmp, int w, int h, int radius, int passes) {
         for (int pass = 0; pass < passes; pass++) {
             box(px, tmp, w, h, radius, true);
             box(tmp, px, w, h, radius, false);
         }
-        return px;
     }
 
     /** Moving average of radius r in one direction, repeating the edge pixels. */

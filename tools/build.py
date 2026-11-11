@@ -1,5 +1,6 @@
-"""Native, dependency-free Android build. Credentials are read only from ignored local config."""
+"""Android build using bundled tools and camera libraries. Credentials are read only from ignored local config."""
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -90,7 +91,7 @@ def build_apk(config_path=None, toolchain=None, sdk_root=None, java_home=None, o
     out = Path(output_dir or ROOT / '.local/build').resolve()
     # Only clean generated build directories, never the repository or a user-supplied parent.
     out.mkdir(parents=True, exist_ok=True)
-    for child in ('gen', 'classes'):
+    for child in ('gen', 'classes', 'dex', 'camera-media3'):
         target = out / child
         if target.exists(): shutil.rmtree(target)
         target.mkdir(parents=True)
@@ -101,22 +102,45 @@ def build_apk(config_path=None, toolchain=None, sdk_root=None, java_home=None, o
     run([tools['aapt2'], 'link', '-o', out / 'base.apk', '-I', tools['android'], '--manifest', ROOT / 'app/AndroidManifest.xml',
          '--java', out / 'gen', out / 'res.zip', '--min-sdk-version', '28', '--target-sdk-version', '34',
          '-A', ROOT / 'app/assets', '-0', 'ttf'])
+    media_bundle = ROOT / 'tools/bundles'
+    media_manifest = json.loads((media_bundle / 'camera-media3.json').read_text(encoding='utf-8'))
+    media_archive = media_bundle / media_manifest['archive']
+    if hashlib.sha256(media_archive.read_bytes()).hexdigest() != media_manifest['sha256']:
+        raise ValueError('Bundled camera library checksum mismatch.')
+    media_jars = []
+    with zipfile.ZipFile(media_archive) as dependencies:
+        for name in media_manifest['jars']:
+            if not re.fullmatch(r'[A-Za-z0-9_.-]+\.jar', name):
+                raise ValueError('Invalid bundled camera library name.')
+            jar = out / 'camera-media3' / name
+            jar.write_bytes(dependencies.read(name))
+            media_jars.append(jar)
     sources = sorted((ROOT / 'app/src').rglob('*.java')) + sorted((out / 'gen').rglob('*.java'))
     argfile = out / 'sources.txt'
     argfile.write_text('\n'.join('"' + p.as_posix() + '"' for p in sources), encoding='utf-8')
-    run([tools['javac'], '-encoding', 'UTF-8', '--release', '8', '-classpath', tools['android'], '-d', out / 'classes', '@' + str(argfile)])
+    run([tools['javac'], '-encoding', 'UTF-8', '--release', '8', '-classpath', os.pathsep.join(map(str, [tools['android'], *media_jars])), '-d', out / 'classes', '@' + str(argfile)])
     with zipfile.ZipFile(out / 'classes.jar', 'w', zipfile.ZIP_DEFLATED) as archive:
         for file in sorted((out / 'classes').rglob('*.class')):
             archive.write(file, file.relative_to(out / 'classes').as_posix())
     run([tools['java'], '-cp', tools['d8'], 'com.android.tools.r8.D8', '--release', '--min-api', '28', '--lib',
-         tools['android'], '--output', out, out / 'classes.jar'])
+         tools['android'], '--output', out / 'dex', out / 'classes.jar', *media_jars])
     # Rewrite raw Windows ZIP names; Python's ZipInfo.filename hides these backslashes on Windows.
     with zipfile.ZipFile(out / 'base.apk') as source, zipfile.ZipFile(out / 'packed.apk', 'w') as target:
         for original in source.infolist():
             item = zipfile.ZipInfo(original.orig_filename.replace('\\', '/'), original.date_time)
             item.compress_type = original.compress_type
             target.writestr(item, source.read(original))
-        target.write(out / 'classes.dex', 'classes.dex', compress_type=zipfile.ZIP_DEFLATED)
+        for dex in sorted((out / 'dex').glob('classes*.dex')):
+            target.write(dex, dex.name, compress_type=zipfile.ZIP_DEFLATED)
+        rust_bundle = media_bundle / 'rust-blur.zip'
+        rust_manifest = json.loads(rust_bundle.with_suffix('.json').read_text(encoding='utf-8'))
+        if hashlib.sha256(rust_bundle.read_bytes()).hexdigest() != rust_manifest['sha256']:
+            raise ValueError('Bundled Rust blur checksum mismatch.')
+        with zipfile.ZipFile(rust_bundle) as libraries:
+            for name in rust_manifest['libraries']:
+                if not re.fullmatch(r'lib/(?:arm64-v8a|armeabi-v7a|x86|x86_64)/libfreemytv_blur\.so', name):
+                    raise ValueError('Invalid bundled Rust library path.')
+                target.writestr(name, libraries.read(name), compress_type=zipfile.ZIP_DEFLATED)
     run([tools['zipalign'], '-f', '-p', '4', out / 'packed.apk', out / 'aligned.apk'])
     key = Path(keystore or ROOT / '.local/signing/freemytv.keystore').resolve()
     key.parent.mkdir(parents=True, exist_ok=True)

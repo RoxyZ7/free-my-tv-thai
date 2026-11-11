@@ -165,7 +165,9 @@ hours of weather, and the muted camera preview. The Home preview fills its
 panel and may crop the edges of the image. Closing the drawer or leaving Home
 stops playback. To retry a
 disconnected feed, reopen the drawer. Remove the feed under **Security camera**
-to return to the original weather layout. The Android TV firmware provides
+to return to the original weather layout. Use **Saved cameras** to preview,
+switch, rename, or delete an entry. Removing the camera from Home keeps it in
+this list. Existing single-camera selections appear as the first saved entry. The Android TV firmware provides
 the RTSP player. If preview fails, check that both devices can reach each
 other and try the camera's H.264 substream or its direct RTSP address. Use a
 camera you trust on your LAN.

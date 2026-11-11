@@ -379,8 +379,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     void resume() {
         if (running) return;
         running = true;
-        cameraConfigured = cameraStore.hasCamera();
         cameraStream = cameraStore.read();
+        cameraConfigured = cameraStream != null;
         layoutDrawer();
         updateCameraPlayback();
         checkNight(false);

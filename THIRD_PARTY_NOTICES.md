@@ -43,3 +43,7 @@ Only the open-source tools/API stubs needed here are redistributed, with notices
 ## Online services
 
 The app can use TMDB for recommendations and Open-Meteo for weather/geocoding. They are external services with their own terms and availability; no account, entitlement or credential is supplied by this repository. App TMDB attribution is retained. This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+## Camera playback
+
+The offline camera bundle includes AndroidX Media3 1.3.1, its AndroidX dependencies, and Guava. See [camera playback notices](app/assets/licenses/camera-media3.txt) for upstream sources, the component list, and the Apache 2.0 license. The repository includes the modified SDP parser source and the bundle manifest pins the archive by SHA-256.

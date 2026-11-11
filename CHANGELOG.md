@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add a Rust implementation of the background box blur, with the Java path available as a fallback.
+- Match camera settings to the Free My TV settings theme and remote focus style.
+
+- Keep an encrypted library of saved cameras with remote-controlled switching.
+- Play VStarcam TCP streams through Media3 and handle the C24S SDP format.
+
 - Add optional ONVIF discovery, manual RTSP setup, and a muted camera preview in the Home drawer.
 - Show compact weather alongside the configured camera and retain the full forecast layout without a camera.
 
