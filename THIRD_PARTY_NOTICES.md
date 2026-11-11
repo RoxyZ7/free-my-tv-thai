@@ -26,7 +26,7 @@ Version **17.0.20.1+1**, Windows x64, compact jlink runtime with the Java compil
 
 Exact official binary release: [Adoptium jdk-17.0.20.1+1](https://github.com/adoptium/temurin17-binaries/releases/tag/jdk-17.0.20.1%2B1).
 
-**Complete corresponding source for the bundled OpenJDK version is also provided as an unmodified archive with this project's v2.0 release:** [OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz](https://github.com/SMOKEx2/free-my-tv-thai/releases/download/v2.0/OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz). The [official upstream source archive](https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz) is an additional source mirror. tools/package_toolchain.py contains the exact jlink module/options used to assemble the subset. Keep access to the corresponding source and these notices when redistributing the tool archive.
+**Complete corresponding source for the bundled OpenJDK version is also provided as an unmodified archive with this project's v2.0 release:** [OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz](https://github.com/RoxyZ7/free-my-tv-thai/releases/download/v2.0/OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz). The [official upstream source archive](https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz) is an additional source mirror. tools/package_toolchain.py contains the exact jlink module/options used to assemble the subset. Keep access to the corresponding source and these notices when redistributing the tool archive.
 
 ### CPython
 
@@ -43,3 +43,7 @@ Only the open-source tools/API stubs needed here are redistributed, with notices
 ## Online services
 
 The app can use TMDB for recommendations and Open-Meteo for weather/geocoding. They are external services with their own terms and availability; no account, entitlement or credential is supplied by this repository. App TMDB attribution is retained. This product uses the TMDB API but is not endorsed or certified by TMDB.
+
+## Camera playback
+
+The offline camera bundle includes AndroidX Media3 1.3.1, its AndroidX dependencies, and Guava. See [camera playback notices](app/assets/licenses/camera-media3.txt) for upstream sources, the component list, and the Apache 2.0 license. The repository includes the modified SDP parser source and the bundle manifest pins the archive by SHA-256.

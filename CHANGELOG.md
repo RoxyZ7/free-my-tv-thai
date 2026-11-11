@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1 — 2026-11-11
+
+- Add a Rust implementation of the background box blur, with the Java path available as a fallback.
+- Use Rust to generate day and night background colors in one pass.
+- Match camera settings to the Free My TV settings theme and remote focus style.
+
+- Keep an encrypted library of saved cameras with remote-controlled switching.
+- Play VStarcam TCP streams through Media3 and handle the C24S SDP format.
+
+- Add optional ONVIF discovery, manual RTSP setup, and a muted camera preview in the Home drawer.
+- Show compact weather alongside the configured camera and retain the full forecast layout without a camera.
+
 ## 2.0 — 2026-10-21
 
 - Package the latest Thai adaptation as a clean public repository with no owner's TMDB key, config or signing material.

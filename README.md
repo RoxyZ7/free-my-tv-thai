@@ -4,7 +4,7 @@
 
 <h1 align="center">Free My TV</h1>
 
-<p align="center"><strong>Thai Edition · Version 2.0</strong><br>
+<p align="center"><strong>Thai Edition · Version 2.1</strong><br>
 A bilingual home screen for Android TV, focused on Xiaomi TV Box S and Mi Box.<br>
 Choose your apps, see recommendations and local weather, and enjoy a matching screensaver.</p>
 
@@ -26,6 +26,8 @@ Choose your apps, see recommendations and local weather, and enjoy a matching sc
 - **Thai and English.** Thai interface, weather text, and movie details with Noto Sans Thai. The app credits the translation to **FB : Kiw Kiattisak** in the settings screen.
 - **Recommendations, if you want them.** Trending titles are matched to the streaming apps available in your country. Add your own TMDB key locally; the home screen and app dock work without one.
 - **Weather and daylight.** A local forecast, sunrise and sunset, using Open-Meteo.
+- **Local security cameras.** Save and switch between cameras, with one muted H.264 preview beside compact weather. Set them up from **Security camera** in Free My TV settings.
+- **Rust image processing.** Background blur and day/night color processing use the bundled Rust library, with a Java fallback.
 - **A matching screensaver.** Free My TV can become both Home and the screensaver.
 - **Optional Xiaomi ad cleanup.** A small, documented set of ad and analytics packages can be disabled and restored. It does not remove ads inside streaming services.
 - **One place to undo.** Choose **Home Screen → Original** to return to the recorded Home, screensaver, and package states. No system apps are uninstalled.
@@ -62,7 +64,7 @@ A default build contains no TMDB key and no preselected apps. Run the guided set
 
 ## Compatibility
 
-Free My TV Thai 2.0 requires Android 9 (API 28) or newer. Mi Box 3 devices that remain on Android 6 or 8 are not supported. See [what has and has not been tested](docs/COMPATIBILITY.md): the preceding 1.0 version was observed on a Xiaomi TV Box S 3rd Gen, while 2.0 still needs a fresh on-device and reboot test.
+Free My TV Thai 2.1 requires Android 9 (API 28) or newer. Mi Box 3 devices that remain on Android 6 or 8 are not supported. See the [compatibility notes](docs/COMPATIBILITY.md) for testing on the Xiaomi TV Box S 3rd Gen and the status of older models.
 
 ## Going back
 
@@ -80,4 +82,4 @@ The app uses TMDB for recommendations and Open-Meteo for weather/geocoding. Thos
 - Original Free My TV source: [MIT-licensed project](https://github.com/simbasjungles/free-my-tv).
 - Fonts and icons keep their own licenses and notices; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - Xiaomi ad package research: [cleanyourtv Mi Box profiles](docs/MI_BOX_ADS.md). Only the ad cleanup research was used.
-- App package: `io.freemytv` · Version **2.0** (version code 2).
+- App package: `io.freemytv` · Version **2.1** (version code 3).

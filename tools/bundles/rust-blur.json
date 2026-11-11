@@ -1,0 +1,11 @@
+{
+  "sha256": "d5cd8028828c62a632825b44d028e92e9c5a9d12ad440a8ab013d3d3f8e55650",
+  "source_sha256": "b213317d4269c37e724005846508ab530b4e7c966949009f651a305b130fba44",
+  "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "libraries": [
+    "lib/arm64-v8a/libfreemytv_blur.so",
+    "lib/armeabi-v7a/libfreemytv_blur.so",
+    "lib/x86/libfreemytv_blur.so",
+    "lib/x86_64/libfreemytv_blur.so"
+  ]
+}

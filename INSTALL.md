@@ -19,7 +19,7 @@ Ask about an unanswered item once, then continue work that does not depend on it
 
 ## 2. Get the repository
 
-1. Open [SMOKEx2/free-my-tv-thai](https://github.com/SMOKEx2/free-my-tv-thai).
+1. Open [RoxyZ7/free-my-tv-thai](https://github.com/RoxyZ7/free-my-tv-thai).
 2. Choose **Code → Download ZIP** and extract the whole archive to a writable folder, such as `Documents\FreeMyTVThai`.
 3. Keep the `app`, `tools`, tests and scripts together. Do not run from inside the ZIP or a protected Program Files directory.
 4. The included `tools/bundles/windows-x64.zip` is a real binary tool archive, not a Git LFS pointer or a download shortcut. Keep it and its JSON checksum manifest together.
@@ -150,3 +150,24 @@ python3 tools/build.py --sdk-root "$ANDROID_HOME" --java-home "$JAVA_HOME"
 ```
 
 This is a source-build route, not a claim of bundled macOS/Linux tooling or hardware testing. Preserve all local signing/config/recovery files, and follow the same questions and TV authorization steps.
+
+## Optional local security camera
+
+Open **Free My TV Settings → Security camera → Find ONVIF cameras** on the TV.
+Select a camera on the same Wi-Fi or Ethernet subnet, choose an H.264 profile
+(the lower resolution stream is a good starting point), and confirm with
+**Use this camera**. If discovery is unavailable, choose **Enter RTSP URL**
+and enter the camera's RTSP address using its private IPv4 address. The address
+is encrypted on the TV and stays out of the computer setup and build config.
+
+Press Down from the Home app shelf to see current conditions, the next three
+hours of weather, and the muted camera preview. The Home preview fills its
+panel and may crop the edges of the image. Closing the drawer or leaving Home
+stops playback. To retry a
+disconnected feed, reopen the drawer. Remove the feed under **Security camera**
+to return to the original weather layout. Use **Saved cameras** to preview,
+switch, rename, or delete an entry. Removing the camera from Home keeps it in
+this list. Existing single-camera selections appear as the first saved entry. The Android TV firmware provides
+the RTSP player. If preview fails, check that both devices can reach each
+other and try the camera's H.264 substream or its direct RTSP address. Use a
+camera you trust on your LAN.

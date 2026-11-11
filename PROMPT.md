@@ -4,7 +4,7 @@ Copy the following into an assistant that can read files and run local commands.
 
 ---
 
-Help me install **Free My TV Thai 2.0** from https://github.com/SMOKEx2/free-my-tv-thai on my own Android TV / Mi Box. Read `README.md`, `INSTALL.md`, `AGENTS.md`, `docs/MI_BOX_ADS.md`, and `docs/RECOVERY.md` first. Build this repository's latest source; do not substitute another launcher. Preserve Thai/English support and the Kiw Kiattisak translation credit.
+Help me install **Free My TV Thai 2.1** from https://github.com/RoxyZ7/free-my-tv-thai on my own Android TV / Mi Box. Read `README.md`, `INSTALL.md`, `AGENTS.md`, `docs/MI_BOX_ADS.md`, and `docs/RECOVERY.md` first. Build this repository's latest source; do not substitute another launcher. Preserve Thai/English support and the Kiw Kiattisak translation credit.
 
 ### Ask these questions before device mutations
 
@@ -29,7 +29,7 @@ Help me install **Free My TV Thai 2.0** from https://github.com/SMOKEx2/free-my-
 
 ### Verify honestly
 
-Run `setup.cmd --verify --device EXACT_ADB_SERIAL` and **inspect the local screenshot**. Check version 2.0 and the Thai/English translation credit in settings. Check all selected dock apps, Left/Right across pages, Up/Down, settings, icons, Thai vowel/tonemark rendering, posters when a key is provided, screensaver, Wi-Fi, audio, remote shortcuts, Bluetooth and casting. Ask me before rebooting or interrupting playback. After an authorized reboot, verify again. Keep older untested Mi Box firmware explicitly marked untested.
+Run `setup.cmd --verify --device EXACT_ADB_SERIAL` and **inspect the local screenshot**. Check version 2.1 and the Thai/English translation credit in settings. Check all selected dock apps, Left/Right across pages, Up/Down, settings, icons, Thai vowel/tonemark rendering, posters when a key is provided, screensaver, Wi-Fi, audio, remote shortcuts, Bluetooth and casting. Ask me before rebooting or interrupting playback. After an authorized reboot, verify again. Keep older untested Mi Box firmware explicitly marked untested.
 
 If the TV is unreachable, continue local build/tests/docs but say that hardware validation could not be completed. Never report a command as successful merely because a process launched. Do not repeatedly mutate settings while disconnected.
 
