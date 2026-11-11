@@ -160,8 +160,10 @@ Select a camera on the same Wi-Fi or Ethernet subnet, choose an H.264 profile
 and enter the camera's RTSP address using its private IPv4 address. The address
 is encrypted on the TV and stays out of the computer setup and build config.
 
-Press Down from the Home app shelf to see compact weather and the muted
-preview. Closing the drawer or leaving Home stops playback. To retry a
+Press Down from the Home app shelf to see current conditions, the next three
+hours of weather, and the muted camera preview. The Home preview fills its
+panel and may crop the edges of the image. Closing the drawer or leaving Home
+stops playback. To retry a
 disconnected feed, reopen the drawer. Remove the feed under **Security camera**
 to return to the original weather layout. The Android TV firmware provides
 the RTSP player. If preview fails, check that both devices can reach each

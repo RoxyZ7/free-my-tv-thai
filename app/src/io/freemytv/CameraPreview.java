@@ -2,12 +2,15 @@ package io.freemytv;
 
 import android.content.Context;
 import android.graphics.Matrix;
+import android.graphics.Outline;
 import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 import android.view.TextureView;
+import android.view.View;
+import android.view.ViewOutlineProvider;
 import java.net.URI;
 
 final class CameraPreview extends TextureView implements TextureView.SurfaceTextureListener {
@@ -15,6 +18,8 @@ final class CameraPreview extends TextureView implements TextureView.SurfaceText
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable changed;
+    private final boolean fillFrame;
+    private float cornerRadius;
     private MediaPlayer player;
     private Surface surface;
     private URI stream;
@@ -25,8 +30,21 @@ final class CameraPreview extends TextureView implements TextureView.SurfaceText
     };
 
     CameraPreview(Context context, Runnable changed) {
+        this(context, changed, false);
+    }
+
+    CameraPreview(Context context, Runnable changed, boolean fillFrame) {
         super(context);
         this.changed = changed;
+        this.fillFrame = fillFrame;
+        if (fillFrame) {
+            setOutlineProvider(new ViewOutlineProvider() {
+                @Override public void getOutline(View view, Outline outline) {
+                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cornerRadius);
+                }
+            });
+            setClipToOutline(true);
+        }
         setOpaque(false);
         setFocusable(false);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -34,6 +52,12 @@ final class CameraPreview extends TextureView implements TextureView.SurfaceText
     }
 
     State state() { return state; }
+
+    void setCornerRadius(float radius) {
+        if (cornerRadius == radius) return;
+        cornerRadius = radius;
+        invalidateOutline();
+    }
 
     void showStream(URI next) {
         if (java.util.Objects.equals(stream, next)) return;
@@ -71,7 +95,7 @@ final class CameraPreview extends TextureView implements TextureView.SurfaceText
                 if (p != player) return;
                 videoWidth = width;
                 videoHeight = height;
-                fit();
+                scaleVideo();
             });
             player.setOnInfoListener((p, what, extra) -> {
                 if (p == player && what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
@@ -120,10 +144,11 @@ final class CameraPreview extends TextureView implements TextureView.SurfaceText
         videoWidth = videoHeight = 0;
     }
 
-    private void fit() {
+    private void scaleVideo() {
         int width = getWidth(), height = getHeight();
         if (width <= 0 || height <= 0 || videoWidth <= 0 || videoHeight <= 0) return;
-        float scale = Math.min(width / (float) videoWidth, height / (float) videoHeight);
+        float scaleX = width / (float) videoWidth, scaleY = height / (float) videoHeight;
+        float scale = fillFrame ? Math.max(scaleX, scaleY) : Math.min(scaleX, scaleY);
         Matrix matrix = new Matrix();
         matrix.setScale(videoWidth * scale / width, videoHeight * scale / height, width / 2f, height / 2f);
         setTransform(matrix);
@@ -133,7 +158,7 @@ final class CameraPreview extends TextureView implements TextureView.SurfaceText
         startIfReady();
     }
 
-    @Override public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) { fit(); }
+    @Override public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) { scaleVideo(); }
 
     @Override public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
         releasePlayer();

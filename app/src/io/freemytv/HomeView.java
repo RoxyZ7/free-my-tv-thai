@@ -323,7 +323,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         cameraPreview = new CameraPreview(a, () -> {
             motionDirty = drawerDirty = true;
             drawerLayer.invalidate();
-        });
+        }, true);
         cameraPreview.setVisibility(INVISIBLE);
         sheetLayer = new Layer(a, SHEET);
         toastLayer = new Layer(a, TOAST);
@@ -489,12 +489,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         place(platter, 0, Math.round(750 * kk));
         place(tiles, 0, Math.round(790 * kk));
         place(drawerLayer, 0, Math.round(470 * kk));
-        int inset = Math.round(14 * kk);
-        int videoX = Math.round(cameraCard.left) + inset;
-        int videoY = Math.round(cameraCard.top) + inset;
-        measure(cameraPreview, Math.max(0, Math.round(cameraCard.width()) - 2 * inset),
-                Math.max(0, Math.round(cameraCard.height()) - 2 * inset));
+        int videoX = Math.round(cameraCard.left);
+        int videoY = Math.round(cameraCard.top);
+        measure(cameraPreview, Math.round(cameraCard.right) - videoX, Math.round(cameraCard.bottom) - videoY);
         place(cameraPreview, videoX, videoY);
+        cameraPreview.setCornerRadius(30 * kk);
         sheetLayer.layout(0, 0, width, height);
         sheetLayer.setPivotX(width / 2f);
         sheetLayer.setPivotY(height / 2f);
@@ -1341,7 +1340,16 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         float left = MARGIN * k, right = CONTENT_R * k;
         float gap = 18 * k, groupGap = 56 * k;
         int groups = drawerInputs > 0 && drawerInputs < n ? 2 : 1;
-        float tw = Math.min(230 * k, (right - left - Math.max(0, n - groups) * gap - (groups - 1) * groupGap) / Math.max(1, n));
+        float cameraGap = 32 * k;
+        float available = right - left;
+        float gaps = Math.max(0, n - groups) * gap + (groups - 1) * groupGap;
+        float naturalRowWidth = n * 230 * k + gaps;
+        float weatherWidth = Math.max(CameraPolicy.weatherWidth(available, cameraGap),
+                Math.min(naturalRowWidth, (available - cameraGap) * 0.5f));
+        // Align the weather card with the end of the shortcuts while leaving room for the camera.
+        boolean tallCamera = cameraConfigured && weatherWidth - gaps >= n * 145 * k;
+        float rowWidth = tallCamera ? weatherWidth : right - left;
+        float tw = Math.min(230 * k, (rowWidth - gaps) / Math.max(1, n));
         float x = left, top = ROW_TOP * k;
         for (int i = 0; i < n; i++) {
             if (i == drawerInputs && i > 0) x += groupGap - gap;
@@ -1351,11 +1359,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         float cardsTop = CARDS_TOP * k, split = left + (right - left) * 0.585f;
         boolean wx = Prefs.weather(), qt = Prefs.quotes() && HomeData.active().length > 0;
         if (cameraConfigured) {
-            float gutter = 32 * k;
-            float edge = left + CameraPolicy.weatherWidth(right - left, gutter);
+            float edge = left + weatherWidth;
             weatherCard.set(left, cardsTop, edge, cardsTop + CARDS_H * k);
             quotesCard.set(weatherCard);
-            setCameraBounds(wx || qt ? edge + gutter : left, cardsTop, right, cardsTop + CARDS_H * k);
+            float cameraLeft = tallCamera || wx || qt ? edge + cameraGap : left;
+            setCameraBounds(cameraLeft, tallCamera ? top : cardsTop, right, cardsTop + CARDS_H * k);
             drawerDirty = true;
             return;
         }
@@ -1501,8 +1509,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private void drawCompactWeather(Canvas c, RectF r) {
         float x = r.left + 30 * k;
-        float room = r.right - x - 30 * k;
         HomeData.Weather wx = data.weather;
+        int hours = forecastCount(wx, 3);
+        float split = r.left + r.width() * 0.52f;
+        float room = (hours == 0 ? r.right : split) - x - 20 * k;
         String city = Prefs.city().isEmpty() ? Ui.tr("Clima", "Weather") : Prefs.city();
         drawCompactLine(c, city, x, r.top + 44 * k, room, cardTitle);
         if (Double.isNaN(wx.temp)) {
@@ -1521,6 +1531,14 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         drawCompactLine(c, high + "   " + low, x, r.top + 208 * k, room, cardDim);
         if (wx.sunrise != 0) sunItem(c, "sunrise", Ui.tr("Nascer ", "Sunrise ") + Ui.time(wx.sunrise), x, r.top + 242 * k);
         if (wx.sunset != 0) sunItem(c, "sunset", Ui.tr("Pôr do sol ", "Sunset ") + Ui.time(wx.sunset), x, r.top + 273 * k);
+        if (hours > 0) {
+            weatherDivider(c, r, split);
+            float forecastLeft = split + 18 * k;
+            float forecastWidth = r.right - 18 * k - forecastLeft;
+            drawCompactLine(c, CameraSettingsActivity.label("พยากรณ์รายชั่วโมง", "Hourly forecast"),
+                    forecastLeft, r.top + 62 * k, forecastWidth, cardTitle);
+            drawWeatherHours(c, wx, r.top + 39 * k, forecastLeft, forecastWidth / hours, hours);
+        }
     }
 
     private void drawCompactLine(Canvas c, String text, float x, float y, float room, Paint paint) {
@@ -1546,19 +1564,33 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         c.drawText(Ui.en ? "H:" + HomeData.degrees(wx.max) + "   L:" + HomeData.degrees(wx.min)
                 : "Máx. " + HomeData.degrees(wx.max) + "   Mín. " + HomeData.degrees(wx.min), x, r.top + 258 * k, cardDim);
         float split = r.left + 392 * k;
-        fill.setShader(null);
-        fill.setColor(tone(0x1A000000, 0x24FFFFFF));
-        c.drawRoundRect(split - k, r.top + 34 * k, split + k, r.bottom - 34 * k, k, k, fill);
+        weatherDivider(c, r, split);
         float hx = split + 30 * k, hw = (r.right - 30 * k - hx) / 6;
-        for (int i = 0; i < wx.hours.size() && i < 6; i++) {
-            float hc = hx + hw * (i + 0.5f);
-            c.drawText(HomeData.hour(wx.hours.get(i)), hc, r.top + 96 * k, hourPaint);
-            Symbols.draw(getContext(), c, Symbols.weather(wx.hourCode.get(i), wx.hourDay.get(i)), hc, r.top + 142 * k, 30 * k, drawerInk(0.9f));
-            c.drawText(HomeData.degrees(wx.hourTemp.get(i)), hc, r.top + 196 * k, hourTemp);
-        }
+        drawWeatherHours(c, wx, r.top, hx, hw, forecastCount(wx, 6));
         float sx = hx, base = r.top + 258 * k;
         if (wx.sunrise != 0) sx = sunItem(c, "sunrise", Ui.tr("Nascer ", "Sunrise ") + Ui.time(wx.sunrise), sx, base) + 36 * k;
         if (wx.sunset != 0) sunItem(c, "sunset", Ui.tr("Pôr do sol ", "Sunset ") + Ui.time(wx.sunset), sx, base);
+    }
+
+    private void weatherDivider(Canvas c, RectF r, float split) {
+        fill.setShader(null);
+        fill.setColor(tone(0x1A000000, 0x24FFFFFF));
+        c.drawRoundRect(split - k, r.top + 34 * k, split + k, r.bottom - 34 * k, k, k, fill);
+    }
+
+    private static int forecastCount(HomeData.Weather wx, int max) {
+        return Math.min(Math.min(max, wx.hours.size()),
+                Math.min(wx.hourTemp.size(), Math.min(wx.hourCode.size(), wx.hourDay.size())));
+    }
+
+    private void drawWeatherHours(Canvas c, HomeData.Weather wx, float top, float left, float slotWidth, int count) {
+        for (int i = 0; i < count; i++) {
+            float center = left + slotWidth * (i + 0.5f);
+            c.drawText(HomeData.hour(wx.hours.get(i)), center, top + 96 * k, hourPaint);
+            Symbols.draw(getContext(), c, Symbols.weather(wx.hourCode.get(i), wx.hourDay.get(i)),
+                    center, top + 142 * k, 30 * k, drawerInk(0.9f));
+            c.drawText(HomeData.degrees(wx.hourTemp.get(i)), center, top + 196 * k, hourTemp);
+        }
     }
 
     private float sunItem(Canvas c, String symbol, String label, float x, float base) {
