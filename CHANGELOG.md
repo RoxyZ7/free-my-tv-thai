@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Add a Rust implementation of the background box blur, with the Java path available as a fallback.
+- Use Rust to generate day and night background colors in one pass.
 - Match camera settings to the Free My TV settings theme and remote focus style.
 
 - Keep an encrypted library of saved cameras with remote-controlled switching.

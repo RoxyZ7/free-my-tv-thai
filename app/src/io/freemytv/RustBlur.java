@@ -25,5 +25,15 @@ final class RustBlur {
         }
     }
 
+    static boolean tint(int[] source, int[] light, int[] dark, float lightAmount, float darkAmount) {
+        if (!AVAILABLE || source == light || (dark != null && (source == dark || light == dark))) return false;
+        try {
+            return tintNative(source, light, dark, lightAmount, darkAmount);
+        } catch (LinkageError ignored) {
+            return false;
+        }
+    }
+
+    private static native boolean tintNative(int[] source, int[] light, int[] dark, float lightAmount, float darkAmount);
     private static native boolean blurNative(int[] pixels, int[] scratch, int width, int height, int radius, int passes);
 }

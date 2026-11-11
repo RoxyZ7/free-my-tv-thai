@@ -61,13 +61,13 @@ final class Backdrop {
             // Light design: everything comes from the photo without scrims.
             Bitmap wide = card(out, WIDE_W, WIDE_H), tall = card(out, TALL_W, TALL_H);
             int[] frost = reduce(out, FW, FH, 3, 3);
-            int[] light = whiten(frost.clone(), 0.82f);
+            int[] light = new int[frost.length], night = new int[frost.length];
+            tint(frost, light, night, 0.82f, 0.76f);
             int[] glass = reduce(out, GW, GH, 2, 2);
-            int[] lightGlass = whiten(glass.clone(), 0.74f);
-            int[] night = darken(frost.clone(), 0.76f);
-            int[] nightGlass = darken(glass, 0.56f);
+            int[] lightGlass = new int[glass.length];
+            tint(glass, lightGlass, null, 0.74f, 0.56f);
             out.recycle();
-            return new Backdrop(null, frost, null, wide, tall, light, lightGlass, night, nightGlass);
+            return new Backdrop(null, frost, null, wide, tall, light, lightGlass, night, glass);
         }
 
         float boost = Math.max(0, Math.min(0.3f, (luminance(out, 0, 0.22f, 0.5f, 0.62f) - 0.22f) * 1.1f));
@@ -165,28 +165,24 @@ final class Backdrop {
         return g;
     }
 
-    /** Blends with a near-black (the darkest gray of Apple's dark-mode backgrounds), keeping the photo's tint. */
-    private static int[] darken(int[] px, float amount) {
-        float keep = 1 - amount, base = 11 * amount;
-        for (int i = 0; i < px.length; i++) {
-            int p = px[i];
-            int r = Math.round(((p >> 16) & 255) * keep + base);
-            int g = Math.round(((p >> 8) & 255) * keep + base);
-            int b = Math.round((p & 255) * keep + base + 2 * amount);
-            px[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
-        }
-        return px;
+    private static void tint(int[] source, int[] light, int[] dark, float lightAmount, float darkAmount) {
+        if (!RustBlur.tint(source, light, dark, lightAmount, darkAmount))
+            tintJava(source, light, dark, lightAmount, darkAmount);
     }
 
-    private static int[] whiten(int[] px, float amount) {
-        for (int i = 0; i < px.length; i++) {
-            int p = px[i];
-            int r = Math.round(((p >> 16) & 255) * (1 - amount) + 255 * amount);
-            int g = Math.round(((p >> 8) & 255) * (1 - amount) + 255 * amount);
-            int b = Math.round((p & 255) * (1 - amount) + 255 * amount);
-            px[i] = 0xFF000000 | (r << 16) | (g << 8) | b;
+    /** Prepare both looks in one pass. A null dark buffer reuses the source pixels. */
+    static void tintJava(int[] source, int[] light, int[] dark, float lightAmount, float darkAmount) {
+        float lightKeep = 1f - lightAmount, lightBase = 255f * lightAmount;
+        float darkKeep = 1f - darkAmount, darkBase = 11f * darkAmount;
+        int[] darkPixels = dark == null ? source : dark;
+        for (int i = 0; i < source.length; i++) {
+            int p = source[i];
+            int r = (p >> 16) & 255, g = (p >> 8) & 255, b = p & 255;
+            light[i] = 0xFF000000 | (Math.round(r * lightKeep + lightBase) << 16)
+                    | (Math.round(g * lightKeep + lightBase) << 8) | Math.round(b * lightKeep + lightBase);
+            darkPixels[i] = 0xFF000000 | (Math.round(r * darkKeep + darkBase) << 16)
+                    | (Math.round(g * darkKeep + darkBase) << 8) | Math.round(b * darkKeep + darkBase + 2f * darkAmount);
         }
-        return px;
     }
 
     /** Halved at each step (a true average, no aliasing), then blurred (box passes of radius r). */
