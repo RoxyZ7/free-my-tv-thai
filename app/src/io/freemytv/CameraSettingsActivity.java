@@ -5,8 +5,10 @@ import android.app.AlertDialog;
 import android.graphics.Canvas;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.text.InputFilter;
 import android.text.InputType;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,6 +33,7 @@ public final class CameraSettingsActivity extends Activity {
     private TextView status;
     private AlertDialog dialog;
     private CameraPreview preview;
+    private float settingsScale = 1f;
 
     static String label(String thai, String english) { return Ui.th ? thai : english; }
     static String title() { return label("กล้องวงจรปิด", "Security camera"); }
@@ -40,67 +43,84 @@ public final class CameraSettingsActivity extends Activity {
         Ui.init(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         store = new CameraStore(this);
-        FrameLayout backdrop = new FrameLayout(this) {
-            private final Scene scene = new Scene();
-            {
-                HomeData.Weather weather = HomeData.get(CameraSettingsActivity.this).weather;
-                Shaders.sky(scene.palette, System.currentTimeMillis(), weather.sunrise, weather.sunset);
-                scene.setMotion(0.5f, 0.2f);
-                scene.applyPalette();
-                setWillNotDraw(false);
-            }
-
-            @Override protected void onSizeChanged(int w, int h, int oldW, int oldH) {
-                scene.setSize(w, h);
-                scene.advance(0);
-            }
-
-            @Override protected void onDraw(Canvas canvas) {
-                scene.drawBackground(canvas);
-            }
-        };
-        LinearLayout columns = new LinearLayout(this);
-        columns.setGravity(Gravity.CENTER_VERTICAL);
-        columns.setPadding(dp(42), dp(24), dp(42), dp(24));
-
-        LinearLayout summary = new LinearLayout(this);
-        summary.setOrientation(LinearLayout.VERTICAL);
-        summary.setGravity(Gravity.CENTER);
-        summary.setPadding(0, 0, dp(28), 0);
-        View icon = new View(this) {
-            @Override protected void onDraw(Canvas canvas) {
-                Symbols.draw(getContext(), canvas, "live_tv", getWidth() / 2f, getHeight() / 2f,
-                        dp(70), 0xEBFFFFFF);
-            }
-        };
-        summary.addView(icon, new LinearLayout.LayoutParams(dp(96), dp(92)));
+        LinearLayout menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
         TextView heading = new TextView(this);
         heading.setText(title());
         heading.setTypeface(Ui.displaySemibold);
         heading.setTextColor(0xFFFFFFFF);
-        heading.setTextSize(32);
-        heading.setGravity(Gravity.CENTER);
-        summary.addView(heading);
-        status = new TextView(this);
-        status.setTypeface(Ui.medium);
-        status.setTextSize(15);
-        status.setTextColor(0xC8FFFFFF);
-        status.setGravity(Gravity.CENTER);
-        status.setPadding(dp(12), dp(12), dp(12), 0);
-        status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        summary.addView(status, new LinearLayout.LayoutParams(-1, -2));
-        columns.addView(summary, new LinearLayout.LayoutParams(0, -2, 1));
-
-        LinearLayout menu = new LinearLayout(this);
-        menu.setOrientation(LinearLayout.VERTICAL);
-        menu.setGravity(Gravity.CENTER_VERTICAL);
+        heading.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        menu.addView(heading, new LinearLayout.LayoutParams(-1, -2));
         Button saved = button(menu, label("กล้องที่บันทึกไว้", "Saved cameras"), this::savedCameras);
         Button scan = button(menu, label("ค้นหากล้อง ONVIF", "Find ONVIF cameras"), this::scan);
         button(menu, label("ใส่ URL ของ RTSP", "Enter RTSP URL"), this::manual);
         button(menu, label("นำกล้องออกจากหน้าแรก", "Remove camera from Home"), this::remove);
         button(menu, label("กลับ", "Back"), this::finish);
-        columns.addView(menu, new LinearLayout.LayoutParams(0, -2, 1.02f));
-        backdrop.addView(columns, new FrameLayout.LayoutParams(-1, -1));
+        status = new TextView(this);
+        status.setTypeface(Ui.regular);
+        status.setTextColor(0x9FFFFFFF);
+        status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        menu.addView(status, new LinearLayout.LayoutParams(-1, -2));
+
+        FrameLayout backdrop = new FrameLayout(this) {
+            private final Scene scene = new Scene();
+            private final SettingsBrand brand = new SettingsBrand(CameraSettingsActivity.this);
+            private final long started = SystemClock.uptimeMillis();
+            private int lastWidth;
+
+            {
+                HomeData.Weather weather = HomeData.get(CameraSettingsActivity.this).weather;
+                Shaders.sky(scene.palette, System.currentTimeMillis(), weather.sunrise, weather.sunset);
+                scene.setMotion(0.5f, 0.2f);
+                setWillNotDraw(false);
+            }
+
+            @Override protected void onMeasure(int width, int height) {
+                int actual = View.MeasureSpec.getSize(width);
+                if (actual != lastWidth) {
+                    lastWidth = actual;
+                    settingsScale = actual / 1920f;
+                    FrameLayout.LayoutParams position = (FrameLayout.LayoutParams) menu.getLayoutParams();
+                    position.width = scaled(824);
+                    position.leftMargin = scaled(1000);
+                    position.topMargin = scaled(144);
+                    heading.setTextSize(TypedValue.COMPLEX_UNIT_PX, scaled(34));
+                    heading.setPadding(scaled(30), 0, scaled(30), 0);
+                    heading.getLayoutParams().height = scaled(56);
+                    for (int i = 1; i < menu.getChildCount() - 1; i++) {
+                        Button row = (Button) menu.getChildAt(i);
+                        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) row.getLayoutParams();
+                        params.height = scaled(68);
+                        params.bottomMargin = scaled(6);
+                        row.setTextSize(TypedValue.COMPLEX_UNIT_PX, scaled(30));
+                        row.setPaddingRelative(scaled(30), 0, scaled(58), 0);
+                        styleRow(row, row.isFocused());
+                    }
+                    status.setTextSize(TypedValue.COMPLEX_UNIT_PX, scaled(23));
+                    status.setPadding(scaled(30), scaled(22), scaled(30), 0);
+                }
+                super.onMeasure(width, height);
+            }
+
+            @Override protected void onSizeChanged(int w, int h, int oldW, int oldH) {
+                scene.setSize(w, h);
+                scene.applyPalette();
+                brand.size(w / 1920f);
+            }
+
+            @Override protected void onDraw(Canvas canvas) {
+                scene.advance((SystemClock.uptimeMillis() - started) / 1000f);
+                scene.drawBackground(canvas);
+                brand.draw(canvas);
+                if (hasWindowFocus()) postInvalidateDelayed(100);
+            }
+
+            @Override public void onWindowFocusChanged(boolean focused) {
+                super.onWindowFocusChanged(focused);
+                if (focused) invalidate();
+            }
+        };
+        backdrop.addView(menu, new FrameLayout.LayoutParams(-2, -2));
         setContentView(backdrop);
         ready();
         (store.hasCamera() ? saved : scan).requestFocus();
@@ -110,8 +130,8 @@ public final class CameraSettingsActivity extends Activity {
         Button button = new Button(this) {
             @Override protected void onDraw(Canvas canvas) {
                 super.onDraw(canvas);
-                Symbols.draw(getContext(), canvas, "chevron_right", getWidth() - dp(18),
-                        getHeight() / 2f, dp(12), isFocused() ? 0xA01C1C1E : 0x91FFFFFF);
+                Symbols.draw(getContext(), canvas, "chevron_right", getWidth() - scaled(40),
+                        getHeight() / 2f, scaled(22), isFocused() ? 0xA01C1C1E : 0x91FFFFFF);
             }
         };
         button.setText(text);
@@ -134,8 +154,8 @@ public final class CameraSettingsActivity extends Activity {
 
     private void styleRow(Button button, boolean focused) {
         GradientDrawable shape = new GradientDrawable();
-        shape.setCornerRadius(dp(12));
-        shape.setColor(focused ? 0xFFFFFFFF : 0x18FFFFFF);
+        shape.setCornerRadius(scaled(18));
+        shape.setColor(focused ? 0xFFFFFFFF : 0x00000000);
         button.setBackground(shape);
         button.setTextColor(focused ? 0xFF1C1C1E : 0xF2FFFFFF);
         button.setElevation(focused ? dp(4) : 0);
@@ -144,6 +164,8 @@ public final class CameraSettingsActivity extends Activity {
     private AlertDialog.Builder cameraDialog() {
         return new AlertDialog.Builder(this, R.style.FreeMyTV_CameraDialog);
     }
+
+    private int scaled(int value) { return Math.round(value * settingsScale); }
 
     private int dp(int value) { return Math.round(getResources().getDisplayMetrics().density * value); }
 

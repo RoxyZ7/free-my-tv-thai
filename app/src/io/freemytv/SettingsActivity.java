@@ -151,7 +151,8 @@ public class SettingsActivity extends Activity {
         private long startedAt, lastNanos, pendingAt, lastSky;
         private int w, h;
         private float k = 1;
-        private Paint title, subtitle, version, rowLabel, rowValue, rowSub, header, cellLabel, cellValue, warn, spinner, white, shadow;
+        private final SettingsBrand brand;
+        private Paint attribution, rowLabel, rowValue, rowSub, header, cellLabel, cellValue, warn, spinner, white, shadow;
         private TextPaint notice;
 
         private final Runnable poll = new Runnable() {
@@ -177,6 +178,7 @@ public class SettingsActivity extends Activity {
         SettingsView(SettingsActivity a) {
             super(a);
             activity = a;
+            brand = new SettingsBrand(a);
             for (int i = 0; i < pop.length; i++) pop[i] = new Spring(0.28f, 0.85f, 0);
             HomeData.Weather wx = HomeData.get(a).weather;
             Shaders.sky(scene.palette, System.currentTimeMillis(), wx.sunrise, wx.sunset);
@@ -301,12 +303,8 @@ public class SettingsActivity extends Activity {
             h = height;
             k = w / 1920f;
             scene.setSize(w, h);
-            title = Ui.text(Ui.displaySemibold, 50 * k, 0xFFFFFFFF);
-            title.setTextAlign(Paint.Align.CENTER);
-            subtitle = Ui.text(Ui.regular, 26 * k, 0x99FFFFFF);
-            subtitle.setTextAlign(Paint.Align.CENTER);
-            version = Ui.text(Ui.regular, 22 * k, 0x66FFFFFF);
-            version.setTextAlign(Paint.Align.CENTER);
+            brand.size(k);
+            attribution = Ui.text(Ui.regular, 22 * k, 0x66FFFFFF);
             rowLabel = Ui.text(Ui.medium, 30 * k, 0xF2FFFFFF);
             rowValue = Ui.text(Ui.regular, 28 * k, 0x8CFFFFFF);
             rowValue.setTextAlign(Paint.Align.RIGHT);
@@ -365,14 +363,7 @@ public class SettingsActivity extends Activity {
             }
             scene.drawBackground(c);
 
-            // On the left: big symbol, title, description.
-            float cx = 500 * k;
-            Symbols.draw(getContext(), c, "sparkles", cx, 400 * k, 150 * k, 0xEBFFFFFF);
-            c.drawText("Free My TV", cx, 612 * k, title);
-            c.drawText(Ui.tr("Início e tela de descanso da TV", "Your TV's home screen and screensaver"), cx, 660 * k, subtitle);
-            c.drawText(versionName(getContext()), cx, 704 * k, version);
-            c.drawText(Ui.th ? "แปลไทยโดย FB : Kiw Kiattisak" : "Thai translation by FB : Kiw Kiattisak",
-                    cx, 748 * k, version);
+            brand.draw(c);
 
             if (screen == MAIN) drawMain(c, seconds); else if (screen == HOME_CHOICE) drawChoice(c); else if (screen == PICKER) drawPicker(c); else if (screen == SHELF_EDIT) drawShelfEditor(c); else drawList(c);
         }
@@ -450,10 +441,8 @@ public class SettingsActivity extends Activity {
                     "On · " + count + " titles from the TV's apps, 3 new ones every hour.");
             else line = Ui.tr("Buscando os títulos…", "Fetching titles…");
             c.drawText(TextUtils.ellipsize(line, notice, 790 * k, TextUtils.TruncateAt.END).toString(), x, y + 42 * k, notice);
-            version.setTextAlign(Paint.Align.LEFT);
             c.drawText(Ui.tr("Usa a API do TMDB, sem endosso ou certificação do TMDB.",
-                    "This product uses the TMDB API but is not endorsed or certified by TMDB."), x, y + 78 * k, version);
-            version.setTextAlign(Paint.Align.CENTER);
+                    "This product uses the TMDB API but is not endorsed or certified by TMDB."), x, y + 78 * k, attribution);
             return y + 78 * k;
         }
 
@@ -559,14 +548,6 @@ public class SettingsActivity extends Activity {
             if (minutes < 60) return Ui.tr("há " + minutes + " min", minutes + " min ago");
             if (minutes < 48 * 60) return Ui.tr("há " + (minutes / 60) + " h", (minutes / 60) + " h ago");
             return Ui.tr("há " + (minutes / 1440) + " dias", (minutes / 1440) + " days ago");
-        }
-
-        private static String versionName(Context c) {
-            try {
-                return "Free My TV " + c.getPackageManager().getPackageInfo(c.getPackageName(), 0).versionName;
-            } catch (android.content.pm.PackageManager.NameNotFoundException e) {
-                return "Free My TV";
-            }
         }
 
         boolean onKey(KeyEvent e) {
