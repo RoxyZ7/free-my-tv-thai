@@ -10,6 +10,7 @@ import android.graphics.BlurMaskFilter;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Matrix;
+import android.graphics.Outline;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
@@ -27,7 +28,9 @@ import android.view.Choreographer;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.accessibility.AccessibilityNodeProvider;
+import android.widget.FrameLayout;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -189,6 +192,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private final RectF weatherCard = new RectF(), quotesCard = new RectF(), cameraCard = new RectF();
     private final CameraStore cameraStore;
     private final CameraPreview cameraPreview;
+    private final FrameLayout cameraFrame;
     private boolean cameraConfigured;
     private java.net.URI cameraStream;
     private final Spring drawer = new Spring(0.46f, 0.92f, 0);
@@ -239,6 +243,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private final Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint veil = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint skyPaint = new Paint();
     private final Paint tileFill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path clip = new Path();
     private final RectF tmp = new RectF(), cell = new RectF(), screen = new RectF();
@@ -325,6 +330,16 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
             drawerLayer.invalidate();
         }, true);
         cameraPreview.setVisibility(INVISIBLE);
+        cameraFrame = new FrameLayout(a);
+        cameraFrame.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+        cameraFrame.setOutlineProvider(new ViewOutlineProvider() {
+            @Override public void getOutline(View view, Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), 30 * k);
+            }
+        });
+        // Clip the container, so the video texture's fill transform cannot change the corner shape.
+        cameraFrame.setClipToOutline(true);
+        cameraFrame.addView(cameraPreview, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         sheetLayer = new Layer(a, SHEET);
         toastLayer = new Layer(a, TOAST);
         // Hardware layers on the GPU: only the one that changed is redrawn; moving, fading and scaling stay cheap.
@@ -335,7 +350,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         for (View v : new View[] {sky, heroLayer, status, platter, tiles, drawerLayer, sheetLayer, toastLayer}) {
             v.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);   // TalkBack reads the items (Spoken)
             addView(v);
-            if (v == drawerLayer) addView(cameraPreview);
+            if (v == drawerLayer) addView(cameraFrame);
         }
         setContentDescription("Free My TV");
         drawerLayer.setVisibility(INVISIBLE);
@@ -491,9 +506,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         place(drawerLayer, 0, Math.round(470 * kk));
         int videoX = Math.round(cameraCard.left);
         int videoY = Math.round(cameraCard.top);
-        measure(cameraPreview, Math.round(cameraCard.right) - videoX, Math.round(cameraCard.bottom) - videoY);
-        place(cameraPreview, videoX, videoY);
-        cameraPreview.setCornerRadius(30 * kk);
+        measure(cameraFrame, Math.round(cameraCard.right) - videoX, Math.round(cameraCard.bottom) - videoY);
+        place(cameraFrame, videoX, videoY);
+        cameraFrame.invalidateOutline();
         sheetLayer.layout(0, 0, width, height);
         sheetLayer.setPivotX(width / 2f);
         sheetLayer.setPivotY(height / 2f);
@@ -660,11 +675,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         drawerLayer.setTranslationY((1 - d) * shift);
         drawerLayer.setAlpha(da);
         drawerLayer.setVisibility(da > 0.002f ? VISIBLE : INVISIBLE);
-        cameraPreview.setTranslationY(drawerLayer.getTranslationY());
+        cameraFrame.setTranslationY(drawerLayer.getTranslationY());
         CameraPreview.State cameraState = cameraPreview.state();
         // TextureView needs a rendered frame to allocate its surface before the player can start.
         float videoAlpha = cameraState == CameraPreview.State.CONNECTING ? 0.01f : 0f;
-        cameraPreview.setAlpha(cameraState == CameraPreview.State.LIVE ? da : videoAlpha);
+        cameraFrame.setAlpha(cameraState == CameraPreview.State.LIVE ? da : videoAlpha);
         sheetLayer.setVisibility(s > 0.001f || sheetOpen ? VISIBLE : INVISIBLE);
         sheetLayer.setAlpha(s);
         float scale = 1.04f - 0.04f * s;
@@ -2360,19 +2375,18 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         if (bgTo == null || (fading && bgFrom == null)) {
             if (lightGradient == null) lightGradient = new LinearGradient(0, 0, 0, h, 0xFFF5F5F7, 0xFFE2E2E7, Shader.TileMode.CLAMP);
             if (nightGradient == null) nightGradient = new LinearGradient(0, 0, 0, h, 0xFF1C1C1E, 0xFF0B0B0D, Shader.TileMode.CLAMP);
-            fill.setColorFilter(v);
-            if (night < 0.999f) {
-                fill.setShader(lightGradient);
-                c.drawRect(screen, fill);
-            }
+            // The drawer paints translucent shapes. Keep their alpha out of the opaque background.
+            skyPaint.setColorFilter(v);
+            skyPaint.setShader(lightGradient);
+            skyPaint.setAlpha(255);
+            c.drawRect(screen, skyPaint);
             if (night > 0.001f) {
-                fill.setShader(nightGradient);
-                fill.setAlpha(Math.round(255 * night));
-                c.drawRect(screen, fill);
-                fill.setAlpha(255);
+                skyPaint.setShader(nightGradient);
+                skyPaint.setAlpha(Math.round(255 * night));
+                c.drawRect(screen, skyPaint);
             }
-            fill.setShader(null);
-            fill.setColorFilter(null);
+            skyPaint.setShader(null);
+            skyPaint.setColorFilter(null);
         }
         imagePaint.setColorFilter(v);
         if (fading && bgFrom != null) drawLightImage(c, bgFrom, bgTo == null ? 1 - e : 1);

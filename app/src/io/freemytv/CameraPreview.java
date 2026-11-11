@@ -2,15 +2,12 @@ package io.freemytv;
 
 import android.content.Context;
 import android.graphics.Matrix;
-import android.graphics.Outline;
 import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 import android.view.TextureView;
-import android.view.View;
-import android.view.ViewOutlineProvider;
 import java.net.URI;
 
 final class CameraPreview extends TextureView implements TextureView.SurfaceTextureListener {
@@ -19,7 +16,6 @@ final class CameraPreview extends TextureView implements TextureView.SurfaceText
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable changed;
     private final boolean fillFrame;
-    private float cornerRadius;
     private MediaPlayer player;
     private Surface surface;
     private URI stream;
@@ -37,14 +33,6 @@ final class CameraPreview extends TextureView implements TextureView.SurfaceText
         super(context);
         this.changed = changed;
         this.fillFrame = fillFrame;
-        if (fillFrame) {
-            setOutlineProvider(new ViewOutlineProvider() {
-                @Override public void getOutline(View view, Outline outline) {
-                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), cornerRadius);
-                }
-            });
-            setClipToOutline(true);
-        }
         setOpaque(false);
         setFocusable(false);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -52,12 +40,6 @@ final class CameraPreview extends TextureView implements TextureView.SurfaceText
     }
 
     State state() { return state; }
-
-    void setCornerRadius(float radius) {
-        if (cornerRadius == radius) return;
-        cornerRadius = radius;
-        invalidateOutline();
-    }
 
     void showStream(URI next) {
         if (java.util.Objects.equals(stream, next)) return;
