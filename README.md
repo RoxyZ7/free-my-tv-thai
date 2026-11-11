@@ -26,6 +26,7 @@ Choose your apps, see recommendations and local weather, and enjoy a matching sc
 - **Thai and English.** Thai interface, weather text, and movie details with Noto Sans Thai. The app credits the translation to **FB : Kiw Kiattisak** in the settings screen.
 - **Recommendations, if you want them.** Trending titles are matched to the streaming apps available in your country. Add your own TMDB key locally; the home screen and app dock work without one.
 - **Weather and daylight.** A local forecast, sunrise and sunset, using Open-Meteo.
+- **Local security camera.** A muted H.264 preview beside compact weather. Set it up from **Security camera** in Free My TV settings.
 - **A matching screensaver.** Free My TV can become both Home and the screensaver.
 - **Optional Xiaomi ad cleanup.** A small, documented set of ad and analytics packages can be disabled and restored. It does not remove ads inside streaming services.
 - **One place to undo.** Choose **Home Screen → Original** to return to the recorded Home, screensaver, and package states. No system apps are uninstalled.

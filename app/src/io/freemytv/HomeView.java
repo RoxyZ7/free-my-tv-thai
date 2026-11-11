@@ -186,7 +186,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     private int drawerInputs;          // how many leading items are inputs (the rest are shortcuts)
     private Spring[] drawerFocus = new Spring[0];
     private RectF[] drawerRects = new RectF[0];
-    private final RectF weatherCard = new RectF(), quotesCard = new RectF();
+    private final RectF weatherCard = new RectF(), quotesCard = new RectF(), cameraCard = new RectF();
+    private final CameraStore cameraStore;
+    private final CameraPreview cameraPreview;
+    private boolean cameraConfigured;
+    private java.net.URI cameraStream;
     private final Spring drawer = new Spring(0.46f, 0.92f, 0);
     private boolean drawerOpen;
     private int drawerIndex;
@@ -315,6 +319,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         platter = new Layer(a, PLATTER);
         tiles = new Layer(a, TILES);
         drawerLayer = new Layer(a, DRAWER);
+        cameraStore = new CameraStore(a);
+        cameraPreview = new CameraPreview(a, () -> {
+            motionDirty = drawerDirty = true;
+            drawerLayer.invalidate();
+        });
+        cameraPreview.setVisibility(INVISIBLE);
         sheetLayer = new Layer(a, SHEET);
         toastLayer = new Layer(a, TOAST);
         // Hardware layers on the GPU: only the one that changed is redrawn; moving, fading and scaling stay cheap.
@@ -325,6 +335,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         for (View v : new View[] {sky, heroLayer, status, platter, tiles, drawerLayer, sheetLayer, toastLayer}) {
             v.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);   // TalkBack reads the items (Spoken)
             addView(v);
+            if (v == drawerLayer) addView(cameraPreview);
         }
         setContentDescription("Free My TV");
         drawerLayer.setVisibility(INVISIBLE);
@@ -353,6 +364,10 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     void resume() {
         if (running) return;
         running = true;
+        cameraConfigured = cameraStore.hasCamera();
+        cameraStream = cameraStore.read();
+        layoutDrawer();
+        updateCameraPlayback();
         checkNight(false);
         resumedAt = SystemClock.uptimeMillis();
         lastNanos = 0;
@@ -378,6 +393,8 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     void pause() {
         if (!running) return;
         running = false;
+        updateCameraPlayback();
+        cameraStream = null;
         Choreographer.getInstance().removeFrameCallback(this);
         handler.removeCallbacks(tick);
         data.removeListener(this);
@@ -396,6 +413,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         shelfIndex = 0;
         sheetOpen = false;
         drawerOpen = false;
+        updateCameraPlayback();
         if (animated) {
             sheet.target = 0;
             drawer.target = 0;
@@ -471,6 +489,12 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         place(platter, 0, Math.round(750 * kk));
         place(tiles, 0, Math.round(790 * kk));
         place(drawerLayer, 0, Math.round(470 * kk));
+        int inset = Math.round(14 * kk);
+        int videoX = Math.round(cameraCard.left) + inset;
+        int videoY = Math.round(cameraCard.top) + inset;
+        measure(cameraPreview, Math.max(0, Math.round(cameraCard.width()) - 2 * inset),
+                Math.max(0, Math.round(cameraCard.height()) - 2 * inset));
+        place(cameraPreview, videoX, videoY);
         sheetLayer.layout(0, 0, width, height);
         sheetLayer.setPivotX(width / 2f);
         sheetLayer.setPivotY(height / 2f);
@@ -637,6 +661,11 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         drawerLayer.setTranslationY((1 - d) * shift);
         drawerLayer.setAlpha(da);
         drawerLayer.setVisibility(da > 0.002f ? VISIBLE : INVISIBLE);
+        cameraPreview.setTranslationY(drawerLayer.getTranslationY());
+        CameraPreview.State cameraState = cameraPreview.state();
+        // TextureView needs a rendered frame to allocate its surface before the player can start.
+        float videoAlpha = cameraState == CameraPreview.State.CONNECTING ? 0.01f : 0f;
+        cameraPreview.setAlpha(cameraState == CameraPreview.State.LIVE ? da : videoAlpha);
         sheetLayer.setVisibility(s > 0.001f || sheetOpen ? VISIBLE : INVISIBLE);
         sheetLayer.setAlpha(s);
         float scale = 1.04f - 0.04f * s;
@@ -1321,15 +1350,38 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         }
         float cardsTop = CARDS_TOP * k, split = left + (right - left) * 0.585f;
         boolean wx = Prefs.weather(), qt = Prefs.quotes() && HomeData.active().length > 0;
+        if (cameraConfigured) {
+            float gutter = 32 * k;
+            float edge = left + CameraPolicy.weatherWidth(right - left, gutter);
+            weatherCard.set(left, cardsTop, edge, cardsTop + CARDS_H * k);
+            quotesCard.set(weatherCard);
+            setCameraBounds(wx || qt ? edge + gutter : left, cardsTop, right, cardsTop + CARDS_H * k);
+            drawerDirty = true;
+            return;
+        }
+        setCameraBounds(0, 0, 0, 0);
         // A card that is off gives its room to the other one.
         weatherCard.set(left, cardsTop, qt ? split - 16 * k : right, cardsTop + CARDS_H * k);
         quotesCard.set(wx ? split + 16 * k : left, cardsTop, right, cardsTop + CARDS_H * k);
         drawerDirty = true;
     }
 
+    private void setCameraBounds(float left, float top, float right, float bottom) {
+        if (cameraCard.left == left && cameraCard.top == top && cameraCard.right == right && cameraCard.bottom == bottom) return;
+        cameraCard.set(left, top, right, bottom);
+        requestLayout();
+    }
+
+    private void updateCameraPlayback() {
+        boolean play = CameraPolicy.play(running, drawerOpen, sheetOpen, cameraStream != null);
+        cameraPreview.setVisibility(play ? VISIBLE : INVISIBLE);
+        cameraPreview.showStream(play ? cameraStream : null);
+    }
+
     private void openDrawer() {
         if (drawerItems.isEmpty()) return;
         drawerOpen = true;
+        updateCameraPlayback();
         drawer.target = 1;
         zone = Z_DRAWER;
         drawerIndex = shelf.isEmpty() ? 0 : nearest(drawerRects, tileRects[shelfIndex].centerX());
@@ -1339,6 +1391,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private void closeDrawer() {
         drawerOpen = false;
+        updateCameraPlayback();
         drawer.target = 0;
         zone = Z_SHELF;
         for (Spring f : drawerFocus) f.snap(0);   // the drawer goes away: its focus doesn't need to animate
@@ -1386,7 +1439,9 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
         for (int i = 0; i < drawerItems.size(); i++) if (i != top) drawDrawerTile(c, i);
         if (top >= 0) drawDrawerTile(c, top);
         if (Prefs.weather()) drawWeatherCard(c, weatherCard);
-        if (Prefs.quotes() && HomeData.active().length > 0) drawQuotesCard(c, quotesCard);
+        if ((!cameraConfigured || !Prefs.weather()) && Prefs.quotes() && HomeData.active().length > 0)
+            drawQuotesCard(c, quotesCard);
+        if (cameraConfigured) drawCameraCard(c);
     }
 
     /** Square drawer button: symbol and name; an input with no device is dimmed. Focused: white, with dark text. */
@@ -1425,8 +1480,53 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
     /** Weather for your location: now (large), the next 6 hours, and sunrise and sunset. */
     private void drawWeatherCard(Canvas c, RectF r) {
         drawerCard(c, r);
-        if (Ui.LEGACY) weatherSnapshot.draw(c, r, drawerCardsKey(), cc -> drawWeather(cc, r));
+        if (cameraConfigured) drawCompactWeather(c, r);
+        else if (Ui.LEGACY) weatherSnapshot.draw(c, r, drawerCardsKey(), cc -> drawWeather(cc, r));
         else drawWeather(c, r);
+    }
+
+    private void drawCameraCard(Canvas c) {
+        drawerCard(c, cameraCard);
+        CameraPreview.State state = cameraPreview.state();
+        if (state == CameraPreview.State.LIVE) return;
+        String detail = state == CameraPreview.State.CONNECTING
+                ? CameraSettingsActivity.label("กำลังเชื่อมต่อ…", "Connecting…")
+                : CameraSettingsActivity.label("เปิดสตรีมไม่ได้", "Unable to play this stream");
+        String title = CameraSettingsActivity.title();
+        c.drawText(title, cameraCard.centerX() - cardTitle.measureText(title) / 2,
+                cameraCard.centerY() - 8 * k, cardTitle);
+        c.drawText(detail, cameraCard.centerX() - cardDim.measureText(detail) / 2,
+                cameraCard.centerY() + 32 * k, cardDim);
+    }
+
+    private void drawCompactWeather(Canvas c, RectF r) {
+        float x = r.left + 30 * k;
+        float room = r.right - x - 30 * k;
+        HomeData.Weather wx = data.weather;
+        String city = Prefs.city().isEmpty() ? Ui.tr("Clima", "Weather") : Prefs.city();
+        drawCompactLine(c, city, x, r.top + 44 * k, room, cardTitle);
+        if (Double.isNaN(wx.temp)) {
+            drawCompactLine(c, Ui.tr("Sem dados do clima agora.", "No weather data right now."),
+                    x, r.top + 118 * k, room, cardDim);
+            return;
+        }
+        String symbol = Symbols.weather(wx.code, wx.isDay);
+        float sw = Symbols.width(getContext(), symbol, 48 * k);
+        Symbols.draw(getContext(), c, symbol, x + sw / 2, r.top + 100 * k, 48 * k, drawerInk(0.95f));
+        String now = HomeData.degrees(wx.temp);
+        c.drawText(now, x + sw + 16 * k - Ui.leftBearing(bigTemp, now), r.top + 130 * k, bigTemp);
+        drawCompactLine(c, HomeData.condition(wx.code, wx.isDay), x, r.top + 173 * k, room, cardText);
+        String high = CameraSettingsActivity.label("สูงสุด ", "High ") + HomeData.degrees(wx.max);
+        String low = CameraSettingsActivity.label("ต่ำสุด ", "Low ") + HomeData.degrees(wx.min);
+        drawCompactLine(c, high + "   " + low, x, r.top + 208 * k, room, cardDim);
+        if (wx.sunrise != 0) sunItem(c, "sunrise", Ui.tr("Nascer ", "Sunrise ") + Ui.time(wx.sunrise), x, r.top + 242 * k);
+        if (wx.sunset != 0) sunItem(c, "sunset", Ui.tr("Pôr do sol ", "Sunset ") + Ui.time(wx.sunset), x, r.top + 273 * k);
+    }
+
+    private void drawCompactLine(Canvas c, String text, float x, float y, float room, Paint paint) {
+        if (paint.measureText(text) > room)
+            text = TextUtils.ellipsize(text, new TextPaint(paint), room, TextUtils.TruncateAt.END).toString();
+        c.drawText(text, x, y, paint);
     }
 
     private void drawWeather(Canvas c, RectF r) {
@@ -1590,6 +1690,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private void openSheet() {
         sheetOpen = true;
+        updateCameraPlayback();
         gridIndex = 0;
         scroll.snap(0);
         retargetGrid(true);
@@ -1600,6 +1701,7 @@ final class HomeView extends ViewGroup implements Choreographer.FrameCallback, H
 
     private void closeSheet() {
         sheetOpen = false;
+        updateCameraPlayback();
         sheet.target = 0;
         retarget(false);
     }

@@ -5,6 +5,20 @@ import java.util.List;
 
 public final class PolicyTest {
     public static void main(String[] args) {
+        check(CameraPolicy.weatherWidth(1000, 20) == 392 && CameraPolicy.weatherWidth(10, 20) == 0,
+                "camera split uses 40 percent after its gutter");
+        check(CameraPolicy.play(true, true, false, true)
+                && !CameraPolicy.play(false, true, false, true)
+                && !CameraPolicy.play(true, false, false, true)
+                && !CameraPolicy.play(true, true, true, true)
+                && !CameraPolicy.play(true, true, false, false), "camera only plays in the visible selected drawer");
+        check(CameraPolicy.endpoint("rtsp://192.168.0.2:554/live", "rtsp") != null
+                && CameraPolicy.endpoint("rtsp://example.test/live", "rtsp") == null
+                && CameraPolicy.endpoint("rtsp://203.0.113.10/live", "rtsp") == null
+                && CameraPolicy.endpoint("rtsp://127.0.0.1/live", "rtsp") == null
+                && CameraPolicy.endpoint("rtsp://192.168.0.2:65536/live", "rtsp") == null
+                && CameraPolicy.endpoint("http://example@192.168.0.2/onvif", "http") == null,
+                "camera addresses must be numeric private IPv4 with a valid port");
         check(ShelfPolicy.packages(" a.one,b.two,a.one,invalid, ").size() == 2, "ordered deduplication");
         check(ShelfPolicy.start(0) == 0 && ShelfPolicy.start(6) == 0, "first seven");
         check(ShelfPolicy.start(7) == 7 && ShelfPolicy.start(14) == 14, "page boundaries");

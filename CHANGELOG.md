@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add optional ONVIF discovery, manual RTSP setup, and a muted camera preview in the Home drawer.
+- Show compact weather alongside the configured camera and retain the full forecast layout without a camera.
+
 ## 2.0 — 2026-10-21
 
 - Package the latest Thai adaptation as a clean public repository with no owner's TMDB key, config or signing material.

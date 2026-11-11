@@ -150,3 +150,20 @@ python3 tools/build.py --sdk-root "$ANDROID_HOME" --java-home "$JAVA_HOME"
 ```
 
 This is a source-build route, not a claim of bundled macOS/Linux tooling or hardware testing. Preserve all local signing/config/recovery files, and follow the same questions and TV authorization steps.
+
+## Optional local security camera
+
+Open **Free My TV Settings → Security camera → Find ONVIF cameras** on the TV.
+Select a camera on the same Wi-Fi or Ethernet subnet, choose an H.264 profile
+(the lower resolution stream is a good starting point), and confirm with
+**Use this camera**. If discovery is unavailable, choose **Enter RTSP URL**
+and enter the camera's RTSP address using its private IPv4 address. The address
+is encrypted on the TV and stays out of the computer setup and build config.
+
+Press Down from the Home app shelf to see compact weather and the muted
+preview. Closing the drawer or leaving Home stops playback. To retry a
+disconnected feed, reopen the drawer. Remove the feed under **Security camera**
+to return to the original weather layout. The Android TV firmware provides
+the RTSP player. If preview fails, check that both devices can reach each
+other and try the camera's H.264 substream or its direct RTSP address. Use a
+camera you trust on your LAN.

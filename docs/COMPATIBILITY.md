@@ -31,3 +31,13 @@ setup.cmd --self-test exercises config escaping/validation, no-key defaults, ins
 For each exact model/firmware, record the Android API, selected language, and before/after results privately. Test: first-run selection; 1/7/8/15-app page navigation; back/up/down and accessibility; Thai marks; all app launches; day/night styling; weather and no-key mode; own-key recommendations; icons; screen saver start/exit; Wi-Fi; Bluetooth pairing; Assistant/mic; phone remote; casting; audio/HDR/video playback; standby/wake; authorized full reboot; and Original recovery preserving pre-disabled packages. Do not publish credentials or unique device IDs with a report.
 
 Some older Mi Box S firmware changes the USB port into debugging/device mode while USB debugging is enabled, which can cut power to attached drives/speakers. Disabling debugging may also remove the app's local ADB ability to switch/restore modes. Plan recovery first and test the specific firmware rather than assuming all Mi Box generations behave the same.
+
+## Local camera preview
+
+Discovery uses ONVIF Media on the same private IPv4 subnet and supports
+ONVIF UsernameToken authentication. A manual RTSP address is available
+for cameras with different discovery or authentication requirements.
+The app validates the configured RTSP destination before handing it
+to the Android firmware player, which controls RTSP redirects and its own
+logging. Build and policy checks do not establish camera playback on any
+particular firmware.
