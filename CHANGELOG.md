@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.1 — 2026-11-11
 
 - Add a Rust implementation of the background box blur, with the Java path available as a fallback.
 - Use Rust to generate day and night background colors in one pass.

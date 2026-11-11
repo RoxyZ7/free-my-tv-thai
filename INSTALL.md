@@ -19,7 +19,7 @@ Ask about an unanswered item once, then continue work that does not depend on it
 
 ## 2. Get the repository
 
-1. Open [SMOKEx2/free-my-tv-thai](https://github.com/SMOKEx2/free-my-tv-thai).
+1. Open [RoxyZ7/free-my-tv-thai](https://github.com/RoxyZ7/free-my-tv-thai).
 2. Choose **Code → Download ZIP** and extract the whole archive to a writable folder, such as `Documents\FreeMyTVThai`.
 3. Keep the `app`, `tools`, tests and scripts together. Do not run from inside the ZIP or a protected Program Files directory.
 4. The included `tools/bundles/windows-x64.zip` is a real binary tool archive, not a Git LFS pointer or a download shortcut. Keep it and its JSON checksum manifest together.

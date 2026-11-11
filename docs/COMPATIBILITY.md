@@ -2,7 +2,7 @@
 
 ## Supported design
 
-- Native Java Android app, package io.freemytv. Version 2.0 / code 2, minSdk 28 (Android 9), targetSdk 34.
+- Android app written in Java and Rust, package io.freemytv. Version 2.1 / code 3, minSdk 28 (Android 9), targetSdk 34.
 - The Rust blur library is bundled for arm64-v8a, armeabi-v7a, x86, and x86_64. Java handles the blur if the library cannot load or the input is outside its supported range. The bundled Windows x64 build tools run on the computer.
 - Android 9–11 retain the upstream Ui.LEGACY drawing path: avoid expensive hardware layers, use cached shadows/bitmap rounding, and use the legacy Recording fallback rather than unguarded RenderNode calls.
 - Android 9–12 retain non-AGSL backgrounds. Android 11 keeps its separate screensaver process variant. Thai fonts and symbols are stored at normalized forward-slash asset paths.
@@ -13,14 +13,14 @@
 
 | Device | Status |
 | --- | --- |
-| Xiaomi TV Box S 3rd Gen, MiTV-AFMU0, Android 14 | Main target. The preceding customized 1.0 build was observed on hardware with Thai Home/settings, recommendations, seven dock apps and icons. 2.0 adds new setup/recovery/pagination behavior and needs its own fresh firmware-level test. |
-| Xiaomi Mi Box S 2nd Gen, Android 11 | Upstream-style legacy/screensaver paths retained; not hardware-tested here with 2.0. |
-| Xiaomi Mi Box S / Mi Box 3 with Android 9 | API floor and older GPU fallbacks retained; not hardware-tested here with 2.0. |
+| Xiaomi TV Box S 3rd Gen, MiTV-AFMU0, Android 14 | Main target. A pre-release build of the 2.1 feature set was installed as the active Home. Thai settings, a seven-app shelf, the C24S H.264 camera stream, and Rust image processing were checked on this model. |
+| Xiaomi Mi Box S 2nd Gen, Android 11 | Upstream-style legacy/screensaver paths retained; not hardware-tested here with 2.1. |
+| Xiaomi Mi Box S / Mi Box 3 with Android 9 | API floor and older GPU fallbacks retained; not hardware-tested here with 2.1. |
 | Mi Box 3 still running Android 6/8 | Unsupported by minSdk 28. Do not bypass Android's minimum version check or flash unofficial firmware as part of this installer. |
 | Other Android TV / Google TV 9+ | Source may run; Xiaomi-specific cleanup is gated off on other manufacturers. No blanket compatibility claim. |
 | Samsung Tizen / LG webOS / Fire TV | Not supported by this installer. |
 
-At packaging time the previously used box was unreachable over ADB. Version 2.0 was built and tested locally with the included portable tools; no fresh 2.0 on-device or controlled reboot test is claimed. Public cleanyourtv model notes are research inputs, not this project's hardware test results.
+The device checks above used the feature build before the version was bumped to 2.1. The final 2.1 build was checked with the bundled tools. A controlled reboot and the full hardware checklist remain unverified.
 
 ## Checks shipped with this repository
 

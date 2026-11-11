@@ -8,8 +8,11 @@ import re
 import shutil
 import subprocess
 import zipfile
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
+MANIFEST = ROOT / 'app/AndroidManifest.xml'
+APP_VERSION = ET.parse(MANIFEST).getroot().attrib['{http://schemas.android.com/apk/res/android}versionName']
 PACKAGE = re.compile(r'[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+')
 DEFAULTS = dict(tmdb_key='', tmdb_region='US', latitude='0', longitude='0', city='', language='auto',
                 currency='USD', temperature='auto', show_crypto='false', disable_assistant='false',
@@ -99,7 +102,7 @@ def build_apk(config_path=None, toolchain=None, sdk_root=None, java_home=None, o
     generated.parent.mkdir(parents=True, exist_ok=True)
     generated.write_text(config_java(config), encoding='utf-8')
     run([tools['aapt2'], 'compile', '--dir', ROOT / 'app/res', '-o', out / 'res.zip'])
-    run([tools['aapt2'], 'link', '-o', out / 'base.apk', '-I', tools['android'], '--manifest', ROOT / 'app/AndroidManifest.xml',
+    run([tools['aapt2'], 'link', '-o', out / 'base.apk', '-I', tools['android'], '--manifest', MANIFEST,
          '--java', out / 'gen', out / 'res.zip', '--min-sdk-version', '28', '--target-sdk-version', '34',
          '-A', ROOT / 'app/assets', '-0', 'ttf'])
     media_bundle = ROOT / 'tools/bundles'
@@ -147,12 +150,12 @@ def build_apk(config_path=None, toolchain=None, sdk_root=None, java_home=None, o
     if not key.exists():
         run([tools['keytool'], '-genkeypair', '-keystore', key, '-alias', 'freemytv', '-keyalg', 'RSA', '-keysize', '2048',
              '-validity', '20000', '-storepass', 'freemytv', '-keypass', 'freemytv', '-dname', 'CN=Free My TV Thai'])
-    apk = ROOT / 'dist/FreeMyTV-2.0.apk'
+    apk = ROOT / 'dist' / f'FreeMyTV-{APP_VERSION}.apk'
     apk.parent.mkdir(parents=True, exist_ok=True)
     run([tools['java'], '-jar', tools['signer'], 'sign', '--ks', key, '--ks-pass', 'pass:freemytv', '--key-pass',
          'pass:freemytv', '--out', apk, out / 'aligned.apk'])
     run([tools['java'], '-jar', tools['signer'], 'verify', '--verbose', apk])
-    print('Built and verified dist/FreeMyTV-2.0.apk. Keep your private .local/signing folder for future updates.')
+    print(f'Built and verified dist/FreeMyTV-{APP_VERSION}.apk. Keep your private .local/signing folder for future updates.')
     return apk
 
 

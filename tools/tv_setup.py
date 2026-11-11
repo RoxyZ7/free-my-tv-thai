@@ -1,4 +1,4 @@
-"""Free My TV Thai 2.0: guided setup, read-only discovery, build, install, verify and recovery."""
+"""Free My TV Thai: guided setup, read-only discovery, build, install, verify and recovery."""
 import argparse
 from datetime import datetime
 import getpass
@@ -136,7 +136,7 @@ def install(adb, config_path, config):
     if 'Success' not in result:
         raise RuntimeError('Installation did not report Success. Do not uninstall or clear data; check the existing signing key.')
     adb.shell('am', 'start', '-n', 'io.freemytv/.SettingsActivity')
-    print('\nInstalled 2.0. On the TV: Home Screen -> Free My TV. Authorize its debugging prompt if shown.')
+    print(f'\nInstalled {build.APP_VERSION}. On the TV: Home Screen -> Free My TV. Authorize its debugging prompt if shown.')
     print('This changes Home/screensaver and disables its recorded stock Home components. Optional ad cleanup follows your choice.')
     print('If setup owns the saved Wi-Fi, the app stops: forget/rejoin that network in TV Settings before trying again.')
     print('Then run setup.cmd --verify --device YOUR_DEVICE and inspect the screenshot.')

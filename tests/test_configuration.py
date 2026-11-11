@@ -6,7 +6,7 @@ import unittest
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-APK = ROOT / "dist/FreeMyTV-2.0.apk"
+APK = ROOT / "dist/FreeMyTV-2.1.apk"
 
 
 def english_ui_strings():
@@ -50,10 +50,12 @@ def test_configurable_shelf_and_version_credit():
     source = (ROOT / "app/src/io/freemytv/HomeApps.java").read_text(encoding="utf-8")
     assert 'ShelfPolicy.packages(Config.SHELF_PACKAGES)' in source
     manifest = (ROOT / 'app/AndroidManifest.xml').read_text(encoding='utf-8')
-    assert 'android:versionName="2.0"' in manifest and 'android:versionCode="2"' in manifest
+    assert 'android:versionName="2.1"' in manifest and 'android:versionCode="3"' in manifest
     settings = (ROOT / 'app/src/io/freemytv/SettingsActivity.java').read_text(encoding='utf-8')
-    assert 'แปลไทยโดย FB : Kiw Kiattisak' in settings
-    assert 'Thai translation by FB : Kiw Kiattisak' in settings
+    brand = (ROOT / 'app/src/io/freemytv/SettingsBrand.java').read_text(encoding='utf-8')
+    assert 'brand.draw(c);' in settings
+    assert 'แปลไทยโดย FB : Kiw Kiattisak' in brand
+    assert 'Thai translation by FB : Kiw Kiattisak' in brand
 
 
 def test_thai_locale_and_core_translation_are_available():
